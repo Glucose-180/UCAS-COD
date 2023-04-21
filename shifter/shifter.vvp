@@ -1,0 +1,189 @@
+#! /c/Source/iverilog-install/bin/vvp
+:ivl_version "12.0 (devel)" "(s20150603-1539-g2693dd32b)";
+:ivl_delay_selection "TYPICAL";
+:vpi_time_precision - 9;
+:vpi_module "D:\ProgramFiles\iverilog\lib\ivl\system.vpi";
+:vpi_module "D:\ProgramFiles\iverilog\lib\ivl\vhdl_sys.vpi";
+:vpi_module "D:\ProgramFiles\iverilog\lib\ivl\vhdl_textio.vpi";
+:vpi_module "D:\ProgramFiles\iverilog\lib\ivl\v2005_math.vpi";
+:vpi_module "D:\ProgramFiles\iverilog\lib\ivl\va_math.vpi";
+S_000002517dc5ca40 .scope module, "shifter_test_g" "shifter_test_g" 2 6;
+ .timescale -8 -9;
+P_000002517dc5cbd0 .param/l "LL" 0 2 14, C4<00>;
+P_000002517dc5cc08 .param/l "RA" 0 2 14, C4<11>;
+P_000002517dc5cc40 .param/l "RL" 0 2 14, C4<10>;
+v000002517db03170_0 .var "A", 31 0;
+v000002517db03ad0_0 .var "B", 4 0;
+v000002517db03670_0 .net "Result", 31 0, L_000002517daf6600;  1 drivers
+v000002517db03210_0 .var "Shiftop", 1 0;
+v000002517db03df0_0 .var/i "i", 31 0;
+S_000002517dc5cc80 .scope module, "shifter_test_inst" "shifter" 2 12, 3 5 0, S_000002517dc5ca40;
+ .timescale -8 -9;
+    .port_info 0 /INPUT 32 "A";
+    .port_info 1 /INPUT 5 "B";
+    .port_info 2 /INPUT 2 "Shiftop";
+    .port_info 3 /OUTPUT 32 "Result";
+P_000002517dc5ce10 .param/l "LL" 0 3 14, C4<00>;
+P_000002517dc5ce48 .param/l "RA" 0 3 14, C4<11>;
+P_000002517dc5ce80 .param/l "RL" 0 3 14, C4<10>;
+L_000002517daf6130 .functor AND 32, L_000002517db03530, L_000002517db032b0, C4<11111111111111111111111111111111>, C4<11111111111111111111111111111111>;
+L_000002517daf5a30 .functor AND 32, L_000002517db03c10, L_000002517db03490, C4<11111111111111111111111111111111>, C4<11111111111111111111111111111111>;
+L_000002517daf6590 .functor OR 32, L_000002517daf6130, L_000002517daf5a30, C4<00000000000000000000000000000000>, C4<00000000000000000000000000000000>;
+L_000002517daf58e0 .functor AND 32, L_000002517dba9240, L_000002517dbaa780, C4<11111111111111111111111111111111>, C4<11111111111111111111111111111111>;
+L_000002517daf6600 .functor OR 32, L_000002517daf6590, L_000002517daf58e0, C4<00000000000000000000000000000000>, C4<00000000000000000000000000000000>;
+v000002517dad2d60_0 .net/s "A", 31 0, v000002517db03170_0;  1 drivers
+v000002517dad2510_0 .net "B", 4 0, v000002517db03ad0_0;  1 drivers
+v000002517dad25b0_0 .net "Result", 31 0, L_000002517daf6600;  alias, 1 drivers
+v000002517dad2650_0 .net "Shiftop", 1 0, v000002517db03210_0;  1 drivers
+L_000002517db60008 .functor BUFT 1, C4<00>, C4<0>, C4<0>, C4<0>;
+v000002517dad26f0_0 .net/2u *"_ivl_0", 1 0, L_000002517db60008;  1 drivers
+L_000002517db60050 .functor BUFT 1, C4<10>, C4<0>, C4<0>, C4<0>;
+v000002517dad2790_0 .net/2u *"_ivl_10", 1 0, L_000002517db60050;  1 drivers
+v000002517db03d50_0 .net *"_ivl_12", 0 0, L_000002517db033f0;  1 drivers
+v000002517db037b0_0 .net *"_ivl_14", 31 0, L_000002517db03c10;  1 drivers
+v000002517db03f30_0 .net *"_ivl_16", 31 0, L_000002517db03490;  1 drivers
+v000002517db03cb0_0 .net *"_ivl_18", 31 0, L_000002517daf5a30;  1 drivers
+v000002517db03990_0 .net *"_ivl_2", 0 0, L_000002517db03b70;  1 drivers
+v000002517db035d0_0 .net *"_ivl_20", 31 0, L_000002517daf6590;  1 drivers
+L_000002517db60098 .functor BUFT 1, C4<11>, C4<0>, C4<0>, C4<0>;
+v000002517db03710_0 .net/2u *"_ivl_22", 1 0, L_000002517db60098;  1 drivers
+v000002517db03fd0_0 .net *"_ivl_24", 0 0, L_000002517dba8f20;  1 drivers
+v000002517db03850_0 .net *"_ivl_26", 31 0, L_000002517dba9240;  1 drivers
+v000002517db038f0_0 .net *"_ivl_28", 31 0, L_000002517dbaa780;  1 drivers
+v000002517db03e90_0 .net *"_ivl_30", 31 0, L_000002517daf58e0;  1 drivers
+v000002517db030d0_0 .net *"_ivl_4", 31 0, L_000002517db03530;  1 drivers
+v000002517db03350_0 .net *"_ivl_6", 31 0, L_000002517db032b0;  1 drivers
+v000002517db03a30_0 .net *"_ivl_8", 31 0, L_000002517daf6130;  1 drivers
+L_000002517db03b70 .cmp/eq 2, v000002517db03210_0, L_000002517db60008;
+LS_000002517db03530_0_0 .concat [ 1 1 1 1], L_000002517db03b70, L_000002517db03b70, L_000002517db03b70, L_000002517db03b70;
+LS_000002517db03530_0_4 .concat [ 1 1 1 1], L_000002517db03b70, L_000002517db03b70, L_000002517db03b70, L_000002517db03b70;
+LS_000002517db03530_0_8 .concat [ 1 1 1 1], L_000002517db03b70, L_000002517db03b70, L_000002517db03b70, L_000002517db03b70;
+LS_000002517db03530_0_12 .concat [ 1 1 1 1], L_000002517db03b70, L_000002517db03b70, L_000002517db03b70, L_000002517db03b70;
+LS_000002517db03530_0_16 .concat [ 1 1 1 1], L_000002517db03b70, L_000002517db03b70, L_000002517db03b70, L_000002517db03b70;
+LS_000002517db03530_0_20 .concat [ 1 1 1 1], L_000002517db03b70, L_000002517db03b70, L_000002517db03b70, L_000002517db03b70;
+LS_000002517db03530_0_24 .concat [ 1 1 1 1], L_000002517db03b70, L_000002517db03b70, L_000002517db03b70, L_000002517db03b70;
+LS_000002517db03530_0_28 .concat [ 1 1 1 1], L_000002517db03b70, L_000002517db03b70, L_000002517db03b70, L_000002517db03b70;
+LS_000002517db03530_1_0 .concat [ 4 4 4 4], LS_000002517db03530_0_0, LS_000002517db03530_0_4, LS_000002517db03530_0_8, LS_000002517db03530_0_12;
+LS_000002517db03530_1_4 .concat [ 4 4 4 4], LS_000002517db03530_0_16, LS_000002517db03530_0_20, LS_000002517db03530_0_24, LS_000002517db03530_0_28;
+L_000002517db03530 .concat [ 16 16 0 0], LS_000002517db03530_1_0, LS_000002517db03530_1_4;
+L_000002517db032b0 .shift/l 32, v000002517db03170_0, v000002517db03ad0_0;
+L_000002517db033f0 .cmp/eq 2, v000002517db03210_0, L_000002517db60050;
+LS_000002517db03c10_0_0 .concat [ 1 1 1 1], L_000002517db033f0, L_000002517db033f0, L_000002517db033f0, L_000002517db033f0;
+LS_000002517db03c10_0_4 .concat [ 1 1 1 1], L_000002517db033f0, L_000002517db033f0, L_000002517db033f0, L_000002517db033f0;
+LS_000002517db03c10_0_8 .concat [ 1 1 1 1], L_000002517db033f0, L_000002517db033f0, L_000002517db033f0, L_000002517db033f0;
+LS_000002517db03c10_0_12 .concat [ 1 1 1 1], L_000002517db033f0, L_000002517db033f0, L_000002517db033f0, L_000002517db033f0;
+LS_000002517db03c10_0_16 .concat [ 1 1 1 1], L_000002517db033f0, L_000002517db033f0, L_000002517db033f0, L_000002517db033f0;
+LS_000002517db03c10_0_20 .concat [ 1 1 1 1], L_000002517db033f0, L_000002517db033f0, L_000002517db033f0, L_000002517db033f0;
+LS_000002517db03c10_0_24 .concat [ 1 1 1 1], L_000002517db033f0, L_000002517db033f0, L_000002517db033f0, L_000002517db033f0;
+LS_000002517db03c10_0_28 .concat [ 1 1 1 1], L_000002517db033f0, L_000002517db033f0, L_000002517db033f0, L_000002517db033f0;
+LS_000002517db03c10_1_0 .concat [ 4 4 4 4], LS_000002517db03c10_0_0, LS_000002517db03c10_0_4, LS_000002517db03c10_0_8, LS_000002517db03c10_0_12;
+LS_000002517db03c10_1_4 .concat [ 4 4 4 4], LS_000002517db03c10_0_16, LS_000002517db03c10_0_20, LS_000002517db03c10_0_24, LS_000002517db03c10_0_28;
+L_000002517db03c10 .concat [ 16 16 0 0], LS_000002517db03c10_1_0, LS_000002517db03c10_1_4;
+L_000002517db03490 .shift/r 32, v000002517db03170_0, v000002517db03ad0_0;
+L_000002517dba8f20 .cmp/eq 2, v000002517db03210_0, L_000002517db60098;
+LS_000002517dba9240_0_0 .concat [ 1 1 1 1], L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20;
+LS_000002517dba9240_0_4 .concat [ 1 1 1 1], L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20;
+LS_000002517dba9240_0_8 .concat [ 1 1 1 1], L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20;
+LS_000002517dba9240_0_12 .concat [ 1 1 1 1], L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20;
+LS_000002517dba9240_0_16 .concat [ 1 1 1 1], L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20;
+LS_000002517dba9240_0_20 .concat [ 1 1 1 1], L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20;
+LS_000002517dba9240_0_24 .concat [ 1 1 1 1], L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20;
+LS_000002517dba9240_0_28 .concat [ 1 1 1 1], L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20, L_000002517dba8f20;
+LS_000002517dba9240_1_0 .concat [ 4 4 4 4], LS_000002517dba9240_0_0, LS_000002517dba9240_0_4, LS_000002517dba9240_0_8, LS_000002517dba9240_0_12;
+LS_000002517dba9240_1_4 .concat [ 4 4 4 4], LS_000002517dba9240_0_16, LS_000002517dba9240_0_20, LS_000002517dba9240_0_24, LS_000002517dba9240_0_28;
+L_000002517dba9240 .concat [ 16 16 0 0], LS_000002517dba9240_1_0, LS_000002517dba9240_1_4;
+L_000002517dbaa780 .shift/rs 32, v000002517db03170_0, v000002517db03ad0_0;
+    .scope S_000002517dc5ca40;
+T_0 ;
+    %pushi/vec4 0, 0, 2;
+    %store/vec4 v000002517db03210_0, 0, 2;
+    %pushi/vec4 0, 0, 32;
+    %store/vec4 v000002517db03df0_0, 0, 32;
+T_0.0 ;
+    %load/vec4 v000002517db03df0_0;
+    %cmpi/s 10, 0, 32;
+    %jmp/0xz T_0.1, 5;
+    %vpi_func 2 20 "$random" 32 {0 0 0};
+    %pad/u 33;
+    %pushi/vec4 2147483648, 0, 32;
+    %concati/vec4 0, 0, 1;
+    %mod;
+    %pad/u 32;
+    %store/vec4 v000002517db03170_0, 0, 32;
+    %vpi_func 2 21 "$random" 32 {0 0 0};
+    %pushi/vec4 32, 0, 32;
+    %mod;
+    %pad/u 5;
+    %store/vec4 v000002517db03ad0_0, 0, 5;
+    %delay 100, 0;
+    %load/vec4 v000002517db03df0_0;
+    %addi 1, 0, 32;
+    %store/vec4 v000002517db03df0_0, 0, 32;
+    %jmp T_0.0;
+T_0.1 ;
+    %pushi/vec4 2, 0, 2;
+    %store/vec4 v000002517db03210_0, 0, 2;
+    %pushi/vec4 0, 0, 32;
+    %store/vec4 v000002517db03df0_0, 0, 32;
+T_0.2 ;
+    %load/vec4 v000002517db03df0_0;
+    %cmpi/s 10, 0, 32;
+    %jmp/0xz T_0.3, 5;
+    %vpi_func 2 27 "$random" 32 {0 0 0};
+    %pad/u 33;
+    %pushi/vec4 2147483648, 0, 32;
+    %concati/vec4 0, 0, 1;
+    %mod;
+    %pad/u 32;
+    %store/vec4 v000002517db03170_0, 0, 32;
+    %vpi_func 2 28 "$random" 32 {0 0 0};
+    %pushi/vec4 32, 0, 32;
+    %mod;
+    %pad/u 5;
+    %store/vec4 v000002517db03ad0_0, 0, 5;
+    %delay 100, 0;
+    %load/vec4 v000002517db03df0_0;
+    %addi 1, 0, 32;
+    %store/vec4 v000002517db03df0_0, 0, 32;
+    %jmp T_0.2;
+T_0.3 ;
+    %pushi/vec4 3, 0, 2;
+    %store/vec4 v000002517db03210_0, 0, 2;
+    %pushi/vec4 0, 0, 32;
+    %store/vec4 v000002517db03df0_0, 0, 32;
+T_0.4 ;
+    %load/vec4 v000002517db03df0_0;
+    %cmpi/s 10, 0, 32;
+    %jmp/0xz T_0.5, 5;
+    %vpi_func 2 34 "$random" 32 {0 0 0};
+    %pad/u 33;
+    %pushi/vec4 2147483648, 0, 32;
+    %concati/vec4 0, 0, 1;
+    %mod;
+    %pad/u 32;
+    %store/vec4 v000002517db03170_0, 0, 32;
+    %vpi_func 2 35 "$random" 32 {0 0 0};
+    %pushi/vec4 32, 0, 32;
+    %mod;
+    %pad/u 5;
+    %store/vec4 v000002517db03ad0_0, 0, 5;
+    %delay 100, 0;
+    %load/vec4 v000002517db03df0_0;
+    %addi 1, 0, 32;
+    %store/vec4 v000002517db03df0_0, 0, 32;
+    %jmp T_0.4;
+T_0.5 ;
+    %end;
+    .thread T_0;
+    .scope S_000002517dc5ca40;
+T_1 ;
+    %vpi_call 2 41 "$dumpfile", "shifter.vcd" {0 0 0};
+    %vpi_call 2 42 "$dumpvars", 32'sb00000000000000000000000000000000, S_000002517dc5ca40 {0 0 0};
+    %end;
+    .thread T_1;
+# The file index is used to find the file name in the following table.
+:file_names 4;
+    "N/A";
+    "<interactive>";
+    ".\shifter_tb.v";
+    ".\shifter.v";
