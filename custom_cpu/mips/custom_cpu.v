@@ -99,6 +99,7 @@ module custom_cpu(
 	wire [31:0] SFT_res;
 	reg [31:0] RF_wbuf;	/* Regfile write buffer, also result register of ALU and SFT */
 	reg BF;			/* flag of branch */
+	reg [31:0] RR1, RR2;	/* Regfile register */
 	/* For FSM */
 	reg [8:0] current_state, next_state;
 
@@ -113,7 +114,7 @@ module custom_cpu(
 	);
 	/* Instantiation of the shifter module */
 	shifter SFT (
-		.A(RF_rdata2), .B(SFT_B), .Shiftop(SFTop), .Result(SFT_res)
+		.A(RR2), .B(SFT_B), .Shiftop(SFTop), .Result(SFT_res)
 	);
 
 	/* ALU opcode */
@@ -199,7 +200,7 @@ module custom_cpu(
 		else if (current_state == s_EX) begin
 			if (Rtype && (func == FC_jr || func == FC_jalr))
 			/* [jr], [jalr] */
-				PC <= RF_rdata1;
+				PC <= RR1;
 			else if (BF)
 				PC <= ALU_res;
 			else if (Jtype)
@@ -225,7 +226,7 @@ module custom_cpu(
 				RF_wbuf <= ALU_res;
 			else if (Rtype && { func[5:3],func[1] } == 4'b0011)
 				/* Rtype::mov */
-				RF_wbuf <= RF_rdata1;
+				RF_wbuf <= RR1;
 			else if (Jtype || Itype_r || Itype_w)
 				RF_wbuf <= ALU_res;
 		end
@@ -235,7 +236,7 @@ module custom_cpu(
 	end
 	/* BF */
 	always @ (posedge clk) begin
-		if (rst != 0)
+		if (rst)
 			BF <= 0;
 		else if (current_state == s_ID)
 			BF <= ((REGIMM && (IR[16] ^ RF_rdata1[31])) ||
@@ -244,6 +245,15 @@ module custom_cpu(
 			/* [bltz], [bgez]; [beq], [bne]; [blez], [bgtz] */
 		else if (current_state == s_EX && BF)
 			BF <= 0;
+	end
+	/* RR */
+	always @ (posedge clk) begin
+		if (current_state == s_ID)
+			RR1 <= RF_rdata1;
+	end
+	always @ (posedge clk) begin
+		if (current_state == s_ID)
+			RR2 <= RF_rdata2;
 	end
 	assign ALU_A = (
 		{32{current_state == s_IF}} & PC |
@@ -260,7 +270,7 @@ module custom_cpu(
 		{3{current_state == s_ID}} & ALU_SUB |
 		{3{current_state == s_EX}} & ALUop_ex
 	);
-	assign RF_wen = (current_state == s_WB && (!Rtype || Rtype && (func != FC_jr && func[5:1] != 5'b00101 || func[5:1] == 5'b00101 && (|RF_rdata2) == func[0])));	/* not Rtype; Rtype except [jr], [movz] and [movn]; [movz], [movn] */
+	assign RF_wen = (current_state == s_WB && (!Rtype || Rtype && (func != FC_jr && func[5:1] != 5'b00101 || func[5:1] == 5'b00101 && (|RR2) == func[0])));	/* not Rtype; Rtype except [jr], [movz] and [movn]; [movz], [movn] */
 
 	/* Control unit */
 	assign NOP = (IR == 32'd0);
@@ -290,21 +300,21 @@ module custom_cpu(
 	assign LoadB = Read_data[{ RF_wbuf[1:0],3'd0 } +: 8];
 	assign LoadH = Read_data[{ RF_wbuf[1],4'd0 } +: 16];
 	assign LoadWL = (
-		{32{RF_wbuf[1:0] == 2'b00}} & { Read_data[7:0],RF_rdata2[23:0] } |
-		{32{RF_wbuf[1:0] == 2'b01}} & { Read_data[15:0],RF_rdata2[15:0] } |
-		{32{RF_wbuf[1:0] == 2'b10}} & { Read_data[23:0],RF_rdata2[7:0] } |
+		{32{RF_wbuf[1:0] == 2'b00}} & { Read_data[7:0],RR2[23:0] } |
+		{32{RF_wbuf[1:0] == 2'b01}} & { Read_data[15:0],RR2[15:0] } |
+		{32{RF_wbuf[1:0] == 2'b10}} & { Read_data[23:0],RR2[7:0] } |
 		{32{RF_wbuf[1:0] == 2'b11}} & Read_data
 	);
 	assign LoadWR = (
 		{32{RF_wbuf[1:0] == 2'b00}} & Read_data |
-		{32{RF_wbuf[1:0] == 2'b01}} & { RF_rdata2[31:24],Read_data[31:8] } |
-		{32{RF_wbuf[1:0] == 2'b10}} & { RF_rdata2[31:16],Read_data[31:16] } |
-		{32{RF_wbuf[1:0] == 2'b11}} & { RF_rdata2[31:8],Read_data[31:24] }
+		{32{RF_wbuf[1:0] == 2'b01}} & { RR2[31:24],Read_data[31:8] } |
+		{32{RF_wbuf[1:0] == 2'b10}} & { RR2[31:16],Read_data[31:16] } |
+		{32{RF_wbuf[1:0] == 2'b11}} & { RR2[31:8],Read_data[31:24] }
 	);
 
 	/* ALU */
-	assign ALU_A_ex = (Rtype && (func == FC_jr || func == FC_jalr) || REGIMM || Itype_branch || Jtype ? PC : RF_rdata1);
-	assign ALU_B_ex = (RF2ALU_B ? RF_rdata2 : (	/* Rtype::calc */
+	assign ALU_A_ex = (Rtype && (func == FC_jr || func == FC_jalr) || REGIMM || Itype_branch || Jtype ? PC : RR1);
+	assign ALU_B_ex = (RF2ALU_B ? RR2 : (	/* Rtype::calc */
 		{32{Rtype && (func == FC_jr || func == FC_jalr) || Jtype}} & 32'd4 |
 		/* Rtype::jump, Jtype */
 		{32{Itype_r || Itype_w || opcode == OC_addiu || opcode == OC_slti || opcode == OC_sltiu}} & SE16 |
@@ -336,7 +346,7 @@ module custom_cpu(
 	);
 
 	/* shifter */
-	assign SFT_B = {5{Rtype && func[5:2] == 4'b0000}} & IR[10:6] | {5{Rtype && func[5:2] == 4'b0001}} & RF_rdata1[4:0];
+	assign SFT_B = {5{Rtype && func[5:2] == 4'b0000}} & IR[10:6] | {5{Rtype && func[5:2] == 4'b0001}} & RR1[4:0];
 	assign SFTop = func[1:0];
 
 	/* RAM */
@@ -347,24 +357,24 @@ module custom_cpu(
 	assign Read_data_Ready = (current_state == s_RDW || current_state == s_INIT);
 	assign Address = { RF_wbuf[31:2],2'b0 };
 	assign Write_data = {
-		{32{opcode[1] == 0}} & (RF_rdata2 << { RF_wbuf[1:0],3'd0 }) |
+		{32{opcode[1] == 0}} & (RR2 << { RF_wbuf[1:0],3'd0 }) |
 		/* [sb], [sh] */
-		{32{opcode[1:0] == 2'b11}} & RF_rdata2 |
+		{32{opcode[1:0] == 2'b11}} & RR2 |
 		/* [sw] */
 		{32{opcode[1:0] == 2'b10}} & (opcode[2] ? StoreWR : StoreWL)
 		/* [swr], [swl] */
 	};
 	assign StoreWL = (
-		{32{RF_wbuf[1:0] == 2'b00}} & { 24'd0,RF_rdata2[31:24] } |
-		{32{RF_wbuf[1:0] == 2'b01}} & { 16'd0,RF_rdata2[31:16] } |
-		{32{RF_wbuf[1:0] == 2'b10}} & { 8'd0,RF_rdata2[31:8] } |
-		{32{RF_wbuf[1:0] == 2'b11}} & RF_rdata2
+		{32{RF_wbuf[1:0] == 2'b00}} & { 24'd0,RR2[31:24] } |
+		{32{RF_wbuf[1:0] == 2'b01}} & { 16'd0,RR2[31:16] } |
+		{32{RF_wbuf[1:0] == 2'b10}} & { 8'd0,RR2[31:8] } |
+		{32{RF_wbuf[1:0] == 2'b11}} & RR2
 	);
 	assign StoreWR = (
-		{32{RF_wbuf[1:0] == 2'b00}} & RF_rdata2 |
-		{32{RF_wbuf[1:0] == 2'b01}} & { RF_rdata2[23:0],8'd0 } |
-		{32{RF_wbuf[1:0] == 2'b10}} & { RF_rdata2[15:0],16'd0 } |
-		{32{RF_wbuf[1:0] == 2'b11}} & { RF_rdata2[7:0],24'd0 }
+		{32{RF_wbuf[1:0] == 2'b00}} & RR2 |
+		{32{RF_wbuf[1:0] == 2'b01}} & { RR2[23:0],8'd0 } |
+		{32{RF_wbuf[1:0] == 2'b10}} & { RR2[15:0],16'd0 } |
+		{32{RF_wbuf[1:0] == 2'b11}} & { RR2[7:0],24'd0 }
 	);
 	assign Write_strb = (
 		{4{opcode[1:0] == 2'b00}} & (4'd1 << RF_wbuf[1:0]) |
