@@ -195,7 +195,7 @@ module custom_cpu(
 	always @ (posedge clk) begin
 		if (rst)
 			PC <= 32'd0;
-		else if (current_state == s_IF)
+		else if (current_state == s_IF && Inst_Req_Ready)
 			PC <= ALU_res;	/* PC <= PC + 4 */
 		else if (current_state == s_EX) begin
 			if (Rtype && (func == FC_jr || func == FC_jalr))
