@@ -250,14 +250,14 @@ int
 puts(const char *s)
 {
 	//TODO: Add your driver code here 
-	unsigned int i = 0;
+	volatile char *uart_c = (void *)uart;
+	unsigned int i;
 
-	while (s[i] != '\0')
+	for (i = 0; s[i] != '\0'; ++i)
 	{
-		while ((*(unsigned int *)((void *)uart + UART_STATUS) & UART_TX_FIFO_FULL) != 0)
+		while ((*(uart_c + UART_STATUS) & UART_TX_FIFO_FULL) != 0)
 			;
-		*((char *)uart + UART_TX_FIFO) = s[i];
-		++i;
+		*(uart_c + UART_TX_FIFO) = s[i];
 	}
 	return i;
 }
