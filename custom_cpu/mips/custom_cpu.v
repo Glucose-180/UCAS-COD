@@ -386,4 +386,31 @@ module custom_cpu(
 		{4{opcode[1:0] == 2'b10}} & (opcode[2] ? (4'd15 << RF_wbuf[1:0]) : ~(4'd14 << RF_wbuf[1:0]))
 	);
 
+	/* Performance counter 0: cycle count */
+	reg [31:0] cycle_count;
+	always @ (posedge clk)
+		if (rst)
+			cycle_count <= 32'd0;
+		else
+			cycle_count <= cycle_count + 32'd1;
+	assign cpu_perf_cnt_0 = cycle_count;
+
+	/* Performance counter 1: instruction count */
+	reg [31:0] inst_count;
+	always @ (posedge clk)
+		if (rst)
+			inst_count <= 32'd0;
+		else if (current_state == s_ID)
+			inst_count <= inst_count + 32'd1;
+	assign cpu_perf_cnt_1 = inst_count;
+
+	/* Performance counter 2: memory access count */
+	reg [31:0] mainst_count;
+	always @ (posedge clk)
+		if (rst)
+			mainst_count <= 32'd0;
+		else if (current_state == s_ID && (Itype_r || Itype_w))
+			mainst_count <= mainst_count + 32'd1;
+	assign cpu_perf_cnt_2 = mainst_count;
+
 endmodule
