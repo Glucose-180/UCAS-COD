@@ -84,8 +84,12 @@ int main() {
 			//   you can ignore according to your performance counters semantics.
 			printk("Results:\n");
 			printk("\tCycles: at least %u\n", (unsigned)msec);
-			printk("\tInstructions: %u\n", (unsigned)res.inst_ymr);
-			printk("\tMemory access instructions: %u\n", (unsigned)res.mainst_ymr);
+			printk("\tInstruction: %u\n", (unsigned)res.inst_ymr);
+			printk("\tMemory access instruction: %u\n", (unsigned)res.mainst_ymr);
+			printk("\tLoad instruction: %u\n", (unsigned)res.ldinst_ymr);
+			printk("\tStore instruction: %u\n", (unsigned)res.stinst_ymr);
+			printk("\tTotal load cycle: %u\n", (unsigned)res.ld_cycle_ymr);
+			printk("\tTotal store cycle: %u\n", (unsigned)res.st_cycle_ymr);
 		}
 	}
 
