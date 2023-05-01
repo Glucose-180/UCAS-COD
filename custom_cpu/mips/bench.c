@@ -83,9 +83,9 @@ int main() {
 			//   `msec' is intended indicate the time (or cycle),
 			//   you can ignore according to your performance counters semantics.
 			printk("Results:\n");
-			printk("\tCycles: at least %llu\n", msec);
-			printk("\tInstructions: %llu\n", res.inst_ymr);
-			printk("\tMemory access instructions: %llu\n", res.mainst_ymr);
+			printk("\tCycles: at least %u\n", (unsigned)msec);
+			printk("\tInstructions: %u\n", (unsigned)res.inst_ymr);
+			printk("\tMemory access instructions: %u\n", (unsigned)res.mainst_ymr);
 		}
 	}
 
