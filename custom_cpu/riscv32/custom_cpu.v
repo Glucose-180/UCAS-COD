@@ -96,11 +96,10 @@ module custom_cpu(
 	reg [8:0] current_state, next_state;
 	/* For RAM */
 	reg [31:0] MDR;	/* Memory data reg */
+	wire [7:0] LoadB;
+	wire [15:0] LoadH;
 
 	/* ASSIGN */
-	assign RF_raddr1 = IR[19:15],
-		RF_raddr2 = IR[24:20],
-		RF_waddr = IR[11:7];
 	assign Rtype = (Opcode == 7'b0110011),
 		Itype_CS = (Opcode == 7'b0010011),
 		Itype_L = (Opcode == 7'b0000011),
@@ -116,7 +115,6 @@ module custom_cpu(
 		Imm_J = { {12{IR[31]}},IR[19:12],IR[20],IR[30:25],IR[24:21],1'd0 };
 	assign Opcode = IR[6:0];
 	assign Funct3 = IR[14:12], Funct7 = IR[31:25];
-	assign SFT_A = RR1;
 
 	/* CONST */
 	localparam s_INIT = 9'h1, s_IF = 9'h2, s_IW = 9'h4,
@@ -238,47 +236,103 @@ module custom_cpu(
 	always @ (posedge clk) begin
 		if (current_state == s_EX && SFTtype)
 			ASR <= SFT_res;
+		else if (current_state == s_EX && Utype)
+			ASR <= Imm_U;	/* [LUI] */
 		else if (current_state == s_EX ||
 			current_state == s_ID && (Btype || Jtype))
 			ASR <= ALU_res;
-		else if (current_state == s_EX && Utype)
-			ASR <= Imm_U;	/* [LUI] */
 	end
 	/* MDR */
 	always @ (posedge clk) begin
 		if (current_state == s_RDW && Read_data_Valid)
 			MDR <= Read_data;
 		else if (current_state == s_EX && Stype)
-			MDR <= RR2;	// TODO
+			MDR <= (
+				{32{Funct3[1:0] == 2'b00}} & (RR2 << { ALU_res[1:0],3'd0 }) |
+				/* [SB] */
+				{32{Funct3[1:0] == 2'b01}} & (RR2 << { ALU_res[1],4'd0 }) |
+				/* [SH] */
+				{32{Funct3[1:0] == 2'b10}} & RR2
+				/* [SW] */
+			);
 	end
 	/* ALU */
-	assign ALU_A = {
+	assign ALU_A = (
 		{32{current_state == s_IF}} & PC |
 		{32{current_state == s_ID}} &
 			(Opcode == OC_jalr ? RF_rdata1 : PCs4) |
 		{32{current_state == s_EX}} & (Jtype || Utype ? PCs4 : RR1)
-	};
-	assign ALU_B = {
+	);
+	assign ALU_B = (
 		{32{current_state == s_IF}} & 32'd4 |
 		{32{current_state == s_ID}} & (
 			{32{Btype}} & Imm_B |
 			{32{Opcode == OC_jal}} & Imm_J |
-			{32{Opcode == OC_jalr}} & Imm_I) |
+			{32{Opcode == OC_jalr}} & Imm_I
+		) |
 		{32{current_state == s_EX}} & (
 			{32{Rtype || Btype}} & RR2 |
 			{32{Itype_CS || Itype_L}} & Imm_I |
 			{32{Stype}} & Imm_S |
 			{32{Utype}} & Imm_U |
-			{32{Jtype}} & 32'd4)
-	};
-	assign ALUop = {
+			{32{Jtype}} & 32'd4
+		)
+	);
+	assign ALUop = (
 		{3{current_state == s_IF || current_state == s_ID}} & ALU_ADD |
 		{3{current_state == s_EX}} & (
 			{3{Rtype}} & (Funct3 | { 2'd0,Funct7[5] }) |
 			{3{Itype_CS}} & Funct3 |
 			/* Well designed! */
 			{3{Itype_L || Stype || Utype || Jtype}} & ALU_ADD |
-			{3{Btype}} & { 1'd0,Funct3[2],~(Funct3[2] ^ Funct3[1]) })
+			{3{Btype}} & { 1'd0,Funct3[2],~(Funct3[2] ^ Funct3[1]) }
 			/* SUB, SLT, SLTU */
-	};
+		)
+	);
+	/* SFT */
+	assign SFT_A = {32{current_state == s_EX}} & RR1,
+		SFT_B = {5{current_state == s_EX}} & (
+		{5{Rtype}} & RR2[4:0] |
+		{5{Itype_CS}} & Imm_I[4:0]
+	);
+	assign SFTop = { Funct3[2],Funct7[5] };
+	/* RF */
+	assign RF_raddr1 = IR[19:15],
+		RF_raddr2 = IR[24:20],
+		RF_waddr = IR[11:7];
+	assign RF_wen = (
+		current_state == s_WB && 
+			(Rtype || Itype_CS || Itype_L || Utype || Jtype)
+	);
+	assign RF_wdata = (
+		{32{Rtype || Itype_CS || Utype || Jtype}} & ASR |
+		{32{Itype_L}} & (
+			{32{Funct3[1:0] == 2'b00}} &
+				{ (Funct3[2] ? 24'd0 : {24{LoadB[7]}}),LoadB } |
+			/* [LBU], [LB] */
+			{32{Funct3[1:0] == 2'b01}} &
+				{ (Funct3[2] ? 16'd0 : {24{LoadH[15]}}),LoadH } |
+			/* [LHU], [LH] */
+			{32{Funct3[1:0] == 2'b10}} & MDR
+			/* [LW] */
+		)
+	);
+	assign LoadB = MDR[{ ASR[1:0],3'd0 } +: 8],
+		LoadH = MDR[{ ASR[1],4'd0 } +: 16];
+	/* RAM */
+	assign MemRead = (current_state == s_LD),
+		MemWrite = (current_state == s_ST);
+	assign Inst_Req_Valid = (current_state == s_IF),
+		Inst_Ready = (current_state == s_IW || current_state == s_INIT),
+		Read_data_Ready = (current_state == s_RDW || current_state == s_INIT);
+	assign Address = { ASR[31:2],2'd0 };
+	assign Write_data = MDR,
+		Write_strb = (
+			{4{Funct3[1:0] == 2'b00}} & (4'd1 << ASR[1:0]) |
+			/* [SB] */
+			{4{Funct3[1:0] == 2'b01}} & (4'd3 << { ASR[1],1'd0 }) |
+			/* [SH] */
+			{4{Funct3[1:0] == 2'b10}} & 4'd15
+			/* [SW] */
+		);
 endmodule
