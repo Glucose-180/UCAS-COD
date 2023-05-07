@@ -335,4 +335,67 @@ module custom_cpu(
 			{4{Funct3[1:0] == 2'b10}} & 4'd15
 			/* [SW] */
 		);
+	
+	/* Performance counter 0: cycle count */
+	reg [31:0] cycle_count;
+	always @ (posedge clk)
+		if (rst)
+			cycle_count <= 32'd0;
+		else
+			cycle_count <= cycle_count + 32'd1;
+	assign cpu_perf_cnt_0 = cycle_count;
+
+	/* Performance counter 1: instruction count */
+	reg [31:0] inst_count;
+	always @ (posedge clk)
+		if (rst)
+			inst_count <= 32'd0;
+		else if (current_state == s_ID)
+			inst_count <= inst_count + 32'd1;
+	assign cpu_perf_cnt_1 = inst_count;
+
+	/* Performance counter 2: memory access instruction count */
+	reg [31:0] mainst_count;
+	always @ (posedge clk)
+		if (rst)
+			mainst_count <= 32'd0;
+		else if (current_state == s_ID && (Itype_L || Stype))
+			mainst_count <= mainst_count + 32'd1;
+	assign cpu_perf_cnt_2 = mainst_count;
+
+	/* Performance counter 3: load instruction count */
+	reg [31:0] ldinst_count;
+	always @ (posedge clk)
+		if (rst)
+			ldinst_count <= 32'd0;
+		else if (current_state == s_ID && Itype_L)
+			ldinst_count <= ldinst_count + 32'd1;
+	assign cpu_perf_cnt_3 = ldinst_count;
+
+	/* Performance counter 4: store instruction count */
+	reg [31:0] stinst_count;
+	always @ (posedge clk)
+		if (rst)
+			stinst_count <= 32'd0;
+		else if (current_state == s_ID && Utype)
+			stinst_count <= stinst_count + 32'd1;
+	assign cpu_perf_cnt_4 = stinst_count;
+
+	/* Performance counter 5: total load cycle count */
+	reg [31:0] ld_cycle_count;
+	always @ (posedge clk)
+		if (rst)
+			ld_cycle_count <= 32'd0;
+		else if (current_state == s_LD || current_state == s_RDW)
+			ld_cycle_count <= ld_cycle_count + 32'd1;
+	assign cpu_perf_cnt_5 = ld_cycle_count;
+
+	/* Performance counter 6: total store cycle count */
+	reg [31:0] st_cycle_count;
+	always @ (posedge clk)
+		if (rst)
+			st_cycle_count <= 32'd0;
+		else if (current_state == s_ST)
+			st_cycle_count <= st_cycle_count + 32'd1;
+	assign cpu_perf_cnt_6 = st_cycle_count;
 endmodule
