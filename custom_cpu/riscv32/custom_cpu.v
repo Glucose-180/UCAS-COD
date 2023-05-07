@@ -5,7 +5,7 @@ module custom_cpu(
 	input         rst,
 
 	//Instruction request channel
-	output [31:0] PC,
+	output reg [31:0] PC,
 	output        Inst_Req_Valid,
 	input         Inst_Req_Ready,
 
@@ -46,7 +46,7 @@ module custom_cpu(
 	output [31:0] cpu_perf_cnt_14,
 	output [31:0] cpu_perf_cnt_15,
 
-	output [69:0] inst_retire
+	output wire [69:0] inst_retire
 );
 
 /* The following signal is leveraged for behavioral simulation, 
@@ -64,8 +64,221 @@ module custom_cpu(
 * }
 *
 */
-  wire [69:0] inst_retire;
 
 // TODO: Please add your custom CPU code here
 
+	/* For reg file */
+	wire RF_wen;
+	wire [31:0] RF_rdata1, RF_rdata2, RF_wdata;
+	wire [4:0] RF_raddr1, RF_raddr2, RF_waddr;
+	reg [31:0] RR1, RR2;
+
+	/* For instruction */
+	reg [31:0] IR, PCs4;
+	wire Rtype, Itype_CS, Itype_L, Stype, Utype, Btype, Jtype;
+	/* CS: Calc and shift; L: Load. */
+	/* Note: [jalr] is considered as J-Type. */
+	wire SFTtype;	/* shift instruction */
+	wire [31:0] Imm_I, Imm_S, Imm_B, Imm_U, Imm_J;
+	/* Immediates */
+	wire [6:0] Opcode, Funct7;
+	wire [2:0] Funct3;
+
+	/* For ALU and shifter */
+	wire [31:0] ALU_A, ALU_B, ALU_res;
+	wire [2:0] ALUop;
+	wire ALU_ZF, ALU_CF, ALU_OF;
+	wire [31:0] SFT_A, SFT_B, SFT_res;
+	wire [1:0] SFTop;
+	reg [31:0] ASR;	/* ALU & SFT reg */
+
+	/* For FSM */
+	reg [8:0] current_state, next_state;
+	/* For RAM */
+	reg [31:0] MDR;	/* Memory data reg */
+
+	/* ASSIGN */
+	assign RF_raddr1 = IR[19:15],
+		RF_raddr2 = IR[24:20],
+		RF_waddr = IR[11:7];
+	assign Rtype = (Opcode == 7'b0110011),
+		Itype_CS = (Opcode == 7'b0010011),
+		Itype_L = (Opcode == 7'b0000011),
+		Stype = (Opcode == 7'b0100011),
+		Utype = ({ Opcode[6],Opcode[4:0] } == 6'b010111),
+		Btype = (Opcode == 7'b1100011),
+		Jtype = ({ Opcode[6:4],Opcode[2:0] } == 6'b110111);
+	assign SFTtype = (Itype_CS || Rtype) && (Funct3[1:0] == 2'b01);
+	assign Imm_I = { {21{IR[31]}},IR[30:25],IR[24:21],IR[20] },
+		Imm_S = { {21{IR[31]}},IR[30:25],IR[11:8],IR[7] },
+		Imm_B = { {20{IR[31]}},IR[7],IR[30:25],IR[11:8],1'd0 },
+		Imm_U = { IR[31],IR[30:20],IR[19:12],12'd0 },
+		Imm_J = { {12{IR[31]}},IR[19:12],IR[20],IR[30:25],IR[24:21],1'd0 };
+	assign Opcode = IR[6:0];
+	assign Funct3 = IR[14:12], Funct7 = IR[31:25];
+	assign SFT_A = RR1;
+
+	/* CONST */
+	localparam s_INIT = 9'h1, s_IF = 9'h2, s_IW = 9'h4,
+		s_ID = 9'h8, s_EX = 9'h10, s_LD = 9'h20, s_RDW = 9'h40,
+		s_ST = 9'h80, s_WB = 9'h100;
+	localparam OC_auipc = 7'b0010111,
+		OC_jal = 7'b1101111, OC_jalr = 7'b1100111;
+	localparam ALU_ADD = 3'b000, ALU_SLT = 3'b010,
+		ALU_SLTU = 3'b011, ALU_SUB = 3'b001;
+
+	/* Instantiation of the register file module */
+	reg_file RF (
+		.clk(clk), .waddr(RF_waddr), .wen(RF_wen), .wdata(RF_wdata),
+		.raddr1(RF_raddr1), .raddr2(RF_raddr2), .rdata1(RF_rdata1), .rdata2(RF_rdata2)
+	);
+	/* Instantiation of the ALU module */
+	alu ALU (
+		.A(ALU_A), .B(ALU_B), .ALUop(ALUop), .Overflow(ALU_OF),
+		.CarryOut(ALU_CF), .Zero(ALU_ZF), .Result(ALU_res)
+	);
+	/* Instantiation of the shifter module */
+	shifter SFT (
+		.A(SFT_A), .B(SFT_B), .Shiftop(SFTop), .Result(SFT_res)
+	);
+
+	/* FSM: state switch */
+	always @ (posedge clk)
+		if (rst)
+			current_state <= s_INIT;
+		else
+			current_state <= next_state;
+	/* FSM: next state */
+	always @ (*) begin
+		case (current_state)
+		s_INIT:	/* Initial */
+			if (rst == 0)
+				next_state = s_IF;
+			else
+				next_state = s_INIT;
+		s_IF:	/* Instruction fetch */
+			if (Inst_Req_Ready)
+				next_state = s_IW;
+			else
+				next_state = s_IF;
+		s_IW:	/* Instruction waiting */
+			if (Inst_Valid)
+				next_state = s_ID;
+			else
+				next_state = s_IW;
+		s_ID:	/* Instruction decoding */
+			next_state = s_EX;
+		s_EX:	/* Executing */
+			if (Btype)
+				next_state = s_IF;
+			else if (Rtype || Itype_CS || Utype || Jtype)
+				next_state = s_WB;
+			else if (Itype_L)
+				next_state = s_LD;
+			else	/* Stype */
+				next_state = s_ST;
+		s_ST:	/* Storing */
+			if (Mem_Req_Ready)
+				next_state = s_IF;
+			else
+				next_state = s_ST;
+		s_LD:	/* Loading */
+			if (Mem_Req_Ready)
+				next_state = s_RDW;
+			else
+				next_state = s_LD;
+		s_RDW:	/* Read data waiting */
+			if (Read_data_Valid)
+				next_state = s_WB;
+			else
+				next_state = s_RDW;
+		s_WB:	/* Writing back */
+			next_state = s_IF;
+		default:
+			next_state = s_INIT;
+		endcase
+	end
+	/* FSM: output */
+	/* PC */
+	always @ (posedge clk) begin
+		if (rst)
+			PC <= 32'd0;
+		else if (current_state == s_IF && Inst_Req_Ready)
+			PC <= ALU_res;	/* PC <= PC + 4 */
+		else if (current_state == s_EX) begin
+			if (Opcode == OC_auipc)
+				PC <= ALU_res;
+			else if (Btype && (Funct3[2] ^ Funct3[0] ^ ALU_ZF)
+				|| Jtype)
+				PC <= { ASR[31:1],1'd0 };
+		end
+	end
+	/* PCs4 */
+	always @ (posedge clk) begin
+		if (current_state == s_IF && Inst_Req_Ready)
+			PCs4 <= PC;
+			/* PCs4 points to current instruction,
+			   while PC points to next instruction. */
+	end
+	/* IR */
+	always @ (posedge clk) begin
+		if (current_state == s_IW && Inst_Valid)
+			IR <= Instruction;
+	end
+	/* RR */
+	always @ (posedge clk) begin
+		if (current_state == s_ID)
+			RR1 <= RF_rdata1;
+	end
+	always @ (posedge clk) begin
+		if (current_state == s_ID)
+			RR2 <= RF_rdata2;
+	end
+	/* ASR */
+	always @ (posedge clk) begin
+		if (current_state == s_EX && SFTtype)
+			ASR <= SFT_res;
+		else if (current_state == s_EX ||
+			current_state == s_ID && (Btype || Jtype))
+			ASR <= ALU_res;
+		else if (current_state == s_EX && Utype)
+			ASR <= Imm_U;	/* [LUI] */
+	end
+	/* MDR */
+	always @ (posedge clk) begin
+		if (current_state == s_RDW && Read_data_Valid)
+			MDR <= Read_data;
+		else if (current_state == s_EX && Stype)
+			MDR <= RR2;	// TODO
+	end
+	/* ALU */
+	assign ALU_A = {
+		{32{current_state == s_IF}} & PC |
+		{32{current_state == s_ID}} &
+			(Opcode == OC_jalr ? RF_rdata1 : PCs4) |
+		{32{current_state == s_EX}} & (Jtype || Utype ? PCs4 : RR1)
+	};
+	assign ALU_B = {
+		{32{current_state == s_IF}} & 32'd4 |
+		{32{current_state == s_ID}} & (
+			{32{Btype}} & Imm_B |
+			{32{Opcode == OC_jal}} & Imm_J |
+			{32{Opcode == OC_jalr}} & Imm_I) |
+		{32{current_state == s_EX}} & (
+			{32{Rtype || Btype}} & RR2 |
+			{32{Itype_CS || Itype_L}} & Imm_I |
+			{32{Stype}} & Imm_S |
+			{32{Utype}} & Imm_U |
+			{32{Jtype}} & 32'd4)
+	};
+	assign ALUop = {
+		{3{current_state == s_IF || current_state == s_ID}} & ALU_ADD |
+		{3{current_state == s_EX}} & (
+			{3{Rtype}} & (Funct3 | { 2'd0,Funct7[5] }) |
+			{3{Itype_CS}} & Funct3 |
+			/* Well designed! */
+			{3{Itype_L || Stype || Utype || Jtype}} & ALU_ADD |
+			{3{Btype}} & { 1'd0,Funct3[2],~(Funct3[2] ^ Funct3[1]) })
+			/* SUB, SLT, SLTU */
+	};
 endmodule
