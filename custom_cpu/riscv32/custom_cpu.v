@@ -79,7 +79,7 @@ module custom_cpu(
 	/* CS: Calc and shift; L: Load. */
 	/* Note: [jalr] is considered as J-Type. */
 	wire SFTtype;	/* shift instruction */
-	wire [31:0] Imm_I, Imm_S, Imm_B, Imm_U, Imm_J;
+	wire [31:0] Imm;
 	/* Immediates */
 	wire [6:0] Opcode, Funct7;
 	wire [2:0] Funct3;
@@ -99,6 +99,15 @@ module custom_cpu(
 	wire [7:0] LoadB;
 	wire [15:0] LoadH;
 
+	/* CONST */
+	localparam s_INIT = 9'h1, s_IF = 9'h2, s_IW = 9'h4,
+		s_ID = 9'h8, s_EX = 9'h10, s_LD = 9'h20, s_RDW = 9'h40,
+		s_ST = 9'h80, s_WB = 9'h100;
+	localparam OC_auipc = 7'b0010111,
+		OC_jal = 7'b1101111, OC_jalr = 7'b1100111;
+	localparam ALU_ADD = 3'b000, ALU_SLT = 3'b010,
+		ALU_SLTU = 3'b011, ALU_SUB = 3'b001;
+
 	/* ASSIGN */
 	assign Rtype = (Opcode == 7'b0110011),
 		Itype_CS = (Opcode == 7'b0010011),
@@ -108,22 +117,19 @@ module custom_cpu(
 		Btype = (Opcode == 7'b1100011),
 		Jtype = ({ Opcode[6:4],Opcode[2:0] } == 6'b110111);
 	assign SFTtype = (Itype_CS || Rtype) && (Funct3[1:0] == 2'b01);
-	assign Imm_I = { {21{IR[31]}},IR[30:25],IR[24:21],IR[20] },
-		Imm_S = { {21{IR[31]}},IR[30:25],IR[11:8],IR[7] },
-		Imm_B = { {20{IR[31]}},IR[7],IR[30:25],IR[11:8],1'd0 },
-		Imm_U = { IR[31],IR[30:20],IR[19:12],12'd0 },
-		Imm_J = { {12{IR[31]}},IR[19:12],IR[20],IR[30:25],IR[24:21],1'd0 };
+	assign Imm = {
+/* 31 */	IR[31],
+/* 30~20 */	(Utype ? IR[30:20] : {11{IR[31]}}),
+/* 19~12 */	(Utype || (Jtype && Opcode[3]) ? IR[19:12] : {8{IR[31]}}),
+/* 11 */	(Itype_CS || Itype_L || Opcode == OC_jalr || Stype) & IR[31] |
+			Btype & IR[7] |	(Jtype && Opcode[3]) & IR[20],
+/* 10~5 */	~{6{Utype}} & IR[30:25],
+/* 4~1 */	{4{Itype_CS || Itype_L || Opcode == OC_jalr  || (Jtype && Opcode[3])}} & IR[24:21] |
+			{4{Stype || Btype}} & IR[11:8],
+/* 0 */		(Itype_CS || Itype_L || Opcode == OC_jalr ) & IR[20] | Stype & IR[7]
+	};
 	assign Opcode = IR[6:0];
 	assign Funct3 = IR[14:12], Funct7 = IR[31:25];
-
-	/* CONST */
-	localparam s_INIT = 9'h1, s_IF = 9'h2, s_IW = 9'h4,
-		s_ID = 9'h8, s_EX = 9'h10, s_LD = 9'h20, s_RDW = 9'h40,
-		s_ST = 9'h80, s_WB = 9'h100;
-	localparam OC_auipc = 7'b0010111,
-		OC_jal = 7'b1101111, OC_jalr = 7'b1100111;
-	localparam ALU_ADD = 3'b000, ALU_SLT = 3'b010,
-		ALU_SLTU = 3'b011, ALU_SUB = 3'b001;
 
 	/* Instantiation of the register file module */
 	reg_file RF (
@@ -237,7 +243,7 @@ module custom_cpu(
 		if (current_state == s_EX && SFTtype)
 			ASR <= SFT_res;
 		else if (current_state == s_EX && Utype)
-			ASR <= Imm_U;	/* [LUI] */
+			ASR <= Imm;	/* [LUI] */
 		else if (current_state == s_EX ||
 			current_state == s_ID && (Btype || Jtype))
 			ASR <= ALU_res;
@@ -265,16 +271,10 @@ module custom_cpu(
 	);
 	assign ALU_B = (
 		{32{current_state == s_IF}} & 32'd4 |
-		{32{current_state == s_ID}} & (
-			{32{Btype}} & Imm_B |
-			{32{Opcode == OC_jal}} & Imm_J |
-			{32{Opcode == OC_jalr}} & Imm_I
-		) |
+		{32{current_state == s_ID}} & Imm |
 		{32{current_state == s_EX}} & (
 			{32{Rtype || Btype}} & RR2 |
-			{32{Itype_CS || Itype_L}} & Imm_I |
-			{32{Stype}} & Imm_S |
-			{32{Utype}} & Imm_U |
+			{32{Itype_CS || Itype_L || Stype || Utype}} & Imm |
 			{32{Jtype}} & 32'd4
 		)
 	);
@@ -293,7 +293,7 @@ module custom_cpu(
 	assign SFT_A = {32{current_state == s_EX}} & RR1,
 		SFT_B = {5{current_state == s_EX}} & (
 		{5{Rtype}} & RR2[4:0] |
-		{5{Itype_CS}} & Imm_I[4:0]
+		{5{Itype_CS}} & Imm[4:0]
 	);
 	assign SFTop = { Funct3[2],Funct7[5] };
 	/* RF */
