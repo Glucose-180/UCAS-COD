@@ -112,21 +112,23 @@ module custom_cpu(
 	assign Rtype = (Opcode == 7'b0110011),
 		Itype_CS = (Opcode == 7'b0010011),
 		Itype_L = (Opcode == 7'b0000011),
+		Itype_J = (Opcode == OC_jalr),
 		Stype = (Opcode == 7'b0100011),
 		Utype = ({ Opcode[6],Opcode[4:0] } == 6'b010111),
 		Btype = (Opcode == 7'b1100011),
-		Jtype = ({ Opcode[6:4],Opcode[2:0] } == 6'b110111);
+		Jtype = (Opcode == OC_jal);
+	assign Itype = Itype_CS || Itype_J || Itype_L;
 	assign SFTtype = (Itype_CS || Rtype) && (Funct3[1:0] == 2'b01);
 	assign Imm = {
 /* 31 */	IR[31],
 /* 30~20 */	(Utype ? IR[30:20] : {11{IR[31]}}),
-/* 19~12 */	(Utype || (Jtype && Opcode[3]) ? IR[19:12] : {8{IR[31]}}),
-/* 11 */	(Itype_CS || Itype_L || Opcode == OC_jalr || Stype) & IR[31] |
-			Btype & IR[7] |	(Jtype && Opcode[3]) & IR[20],
+/* 19~12 */	(Utype || Jtype ? IR[19:12] : {8{IR[31]}}),
+/* 11 */	(Itype || Stype) & IR[31] |
+			Btype & IR[7] |	Jtype & IR[20],
 /* 10~5 */	~{6{Utype}} & IR[30:25],
-/* 4~1 */	{4{Itype_CS || Itype_L || Opcode == OC_jalr  || (Jtype && Opcode[3])}} & IR[24:21] |
+/* 4~1 */	{4{Itype  || Jtype}} & IR[24:21] |
 			{4{Stype || Btype}} & IR[11:8],
-/* 0 */		(Itype_CS || Itype_L || Opcode == OC_jalr ) & IR[20] | Stype & IR[7]
+/* 0 */		Itype & IR[20] | Stype & IR[7]
 	};
 	assign Opcode = IR[6:0];
 	assign Funct3 = IR[14:12], Funct7 = IR[31:25];
@@ -175,7 +177,7 @@ module custom_cpu(
 		s_EX:	/* Executing */
 			if (Btype)
 				next_state = s_IF;
-			else if (Rtype || Itype_CS || Utype || Jtype)
+			else if (Rtype || Itype_CS || Utype || Jtype || Itype_J)
 				next_state = s_WB;
 			else if (Itype_L)
 				next_state = s_LD;
@@ -213,7 +215,7 @@ module custom_cpu(
 			if (Opcode == OC_auipc)
 				PC <= ALU_res;
 			else if (Btype && (Funct3[2] ^ Funct3[0] ^ ALU_ZF)
-				|| Jtype)
+				|| Jtype || Itype_J)
 				PC <= { ASR[31:1],1'd0 };
 		end
 	end
@@ -245,7 +247,7 @@ module custom_cpu(
 		else if (current_state == s_EX && Utype)
 			ASR <= Imm;	/* [LUI] */
 		else if (current_state == s_EX ||
-			current_state == s_ID && (Btype || Jtype))
+			current_state == s_ID && (Btype || Jtype || Itype_J))
 			ASR <= ALU_res;
 	end
 	/* MDR */
@@ -266,8 +268,8 @@ module custom_cpu(
 	assign ALU_A = (
 		{32{current_state == s_IF}} & PC |
 		{32{current_state == s_ID}} &
-			(Opcode == OC_jalr ? RF_rdata1 : PCs4) |
-		{32{current_state == s_EX}} & (Jtype || Utype ? PCs4 : RR1)
+			(Itype_J ? RF_rdata1 : PCs4) |
+		{32{current_state == s_EX}} & (Jtype || Itype_J || Utype ? PCs4 : RR1)
 	);
 	assign ALU_B = (
 		{32{current_state == s_IF}} & 32'd4 |
@@ -275,7 +277,7 @@ module custom_cpu(
 		{32{current_state == s_EX}} & (
 			{32{Rtype || Btype}} & RR2 |
 			{32{Itype_CS || Itype_L || Stype || Utype}} & Imm |
-			{32{Jtype}} & 32'd4
+			{32{Jtype || Itype_J}} & 32'd4
 		)
 	);
 	assign ALUop = (
@@ -284,7 +286,7 @@ module custom_cpu(
 			{3{Rtype}} & (Funct3 | { 2'd0,Funct7[5] }) |
 			{3{Itype_CS}} & Funct3 |
 			/* Well designed! */
-			{3{Itype_L || Stype || Utype || Jtype}} & ALU_ADD |
+			{3{Itype_L || Stype || Utype || Jtype || Itype_J}} & ALU_ADD |
 			{3{Btype}} & { 1'd0,Funct3[2],~(Funct3[2] ^ Funct3[1]) }
 			/* SUB, SLT, SLTU */
 		)
@@ -302,10 +304,10 @@ module custom_cpu(
 		RF_waddr = IR[11:7];
 	assign RF_wen = (
 		current_state == s_WB && 
-			(Rtype || Itype_CS || Itype_L || Utype || Jtype)
+			(Rtype || Itype || Utype || Jtype)
 	);
 	assign RF_wdata = (
-		{32{Rtype || Itype_CS || Utype || Jtype}} & ASR |
+		{32{Rtype || Itype_CS || Utype || Jtype || Itype_J}} & ASR |
 		{32{Itype_L}} & (
 			{32{Funct3[1:0] == 2'b00}} &
 				{ (Funct3[2] ? 24'd0 : {24{LoadB[7]}}),LoadB } |
