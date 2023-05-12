@@ -379,7 +379,7 @@ module custom_cpu(
 	always @ (posedge clk)
 		if (rst)
 			stinst_count <= 32'd0;
-		else if (current_state == s_ID && Utype)
+		else if (current_state == s_ID && Stype)
 			stinst_count <= stinst_count + 32'd1;
 	assign cpu_perf_cnt_4 = stinst_count;
 
