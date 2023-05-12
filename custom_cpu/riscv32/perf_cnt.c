@@ -4,14 +4,15 @@ static volatile uint32_t* const Counter[NCT] = {
 	(void *)0x60010000, (void *)0x60010008,
 	(void *)0x60011000, (void *)0x60011008,
 	(void *)0x60012000, (void *)0x60012008,
-	(void *)0x60013000,
+	(void *)0x60013000, (void *)0x60013008
 };
 
 const char* const Label[NCT] = {
 	"Cycle count", "Instruction count",
 	"Memory access instruction count",
 	"Load instruction count", "Store instruction count",
-	"Total load cycle", "Total store cycle"
+	"Total load cycle", "Total store cycle",
+	"NOP count"
 };
 
 /*static inline unsigned long _uptime() {

@@ -8,7 +8,7 @@ extern "C" {
 
 #include <stdint.h>
 
-#define NCT 7
+#define NCT 8
 // number of counters
 
 typedef struct Result {

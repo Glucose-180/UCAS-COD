@@ -400,4 +400,14 @@ module custom_cpu(
 		else if (current_state == s_ST)
 			st_cycle_count <= st_cycle_count + 32'd1;
 	assign cpu_perf_cnt_6 = st_cycle_count;
+	
+	/* Performance counter 7: NOP count */
+	reg [31:0] nop_count;
+	always @ (posedge clk)
+		if (rst)
+			nop_count <= 32'd0;
+		else if (current_state == s_ID && IR == 32'h13)
+			nop_count <= nop_count + 32'd1;
+	assign cpu_perf_cnt_7 = nop_count;
+
 endmodule

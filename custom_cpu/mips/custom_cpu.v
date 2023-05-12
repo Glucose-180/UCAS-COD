@@ -118,7 +118,7 @@ module custom_cpu(
 	);
 
 	/* ALU opcode */
-	localparam ALU_AND = 3'b000, ALU_OR = 3'b001, ALU_ADD = 3'b010, ALU_SUB = 3'b110, ALU_SLT = 3'b111, ALU_XOR = 3'b100, ALU_NOR = 3'b101, ALU_SLTU = 3'b011;
+	localparam ALU_AND = 3'b111, ALU_OR = 3'b110, ALU_ADD = 3'b000, ALU_SUB = 3'b001, ALU_SLT = 3'b010, ALU_XOR = 3'b100, ALU_NOR = 3'b101, ALU_SLTU = 3'b011;
 	/* Instruction opcode */
 	localparam OC_addiu = 6'b001001, OC_lui = 6'b001111, OC_andi = 6'b001100, OC_ori = 6'b001101, OC_xori = 6'b001110, OC_slti = 6'b001010, OC_sltiu = 6'b001011, OC_j = 6'b000010, OC_jal = 6'b000011;
 	/* R-type func */
@@ -448,5 +448,14 @@ module custom_cpu(
 		else if (current_state == s_ST)
 			st_cycle_count <= st_cycle_count + 32'd1;
 	assign cpu_perf_cnt_6 = st_cycle_count;
+
+	/* Performance counter 7: NOP count */
+	reg [31:0] nop_count;
+	always @ (posedge clk)
+		if (rst)
+			nop_count <= 32'd0;
+		else if (current_state == s_ID && NOP)
+			nop_count <= nop_count + 32'd1;
+	assign cpu_perf_cnt_7 = nop_count;
 
 endmodule
