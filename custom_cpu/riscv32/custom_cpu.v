@@ -90,6 +90,10 @@ module custom_cpu(
 	wire ALU_ZF, ALU_CF, ALU_OF;
 	wire [31:0] SFT_A, SFT_B, SFT_res;
 	wire [1:0] SFTop;
+
+	/* For multiplier */
+	wire [31:0] MULT_A, MULT_B, MULT_res;
+
 	reg [31:0] ASR;	/* ALU & SFT reg */
 
 	/* For FSM */
@@ -117,6 +121,8 @@ module custom_cpu(
 		Utype = ({ Opcode[6],Opcode[4:0] } == 6'b010111),
 		Btype = (Opcode == 7'b1100011),
 		Jtype = (Opcode == OC_jal);
+	assign MUL = (Rtype && Funct3 == 3'd0 && Funct7 == 7'd1);
+	/* [MUL] instruction */
 	assign Itype = Itype_CS || Itype_J || Itype_L;
 	assign SFTtype = (Itype_CS || Rtype) && (Funct3[1:0] == 2'b01);
 	assign Imm = {
@@ -146,6 +152,10 @@ module custom_cpu(
 	/* Instantiation of the shifter module */
 	shifter SFT (
 		.A(SFT_A), .B(SFT_B), .Shiftop(SFTop), .Result(SFT_res)
+	);
+	/* Instantiation of the multipier module */
+	multiplier MULT(
+		.A(MULT_A), .B(MULT_B), .P(MULT_res)
 	);
 
 	/* FSM: state switch */
@@ -246,6 +256,8 @@ module custom_cpu(
 			ASR <= SFT_res;
 		else if (current_state == s_EX && Utype)
 			ASR <= Imm;	/* [LUI] */
+		else if (current_state == s_EX && MUL)
+			ASR <= MULT_res;	/* [MUL] */
 		else if (current_state == s_EX ||
 			current_state == s_ID && (Btype || Jtype || Itype_J))
 			ASR <= ALU_res;
@@ -298,6 +310,9 @@ module custom_cpu(
 		{5{Itype_CS}} & Imm[4:0]
 	);
 	assign SFTop = { Funct3[2],Funct7[5] };
+	/* MULT */
+	assign MULT_A = {32{current_state == s_EX}} & RR1,
+		MULT_B = {32{current_state == s_EX}} & RR2;
 	/* RF */
 	assign RF_raddr1 = IR[19:15],
 		RF_raddr2 = IR[24:20],
