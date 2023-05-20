@@ -53,8 +53,8 @@ void convolution()
 	unsigned pad = KERN_ATTR_CONV_PAD;
 	unsigned pad_len = pad << 1;
 
-	unsigned conv_out_w = rd_size.d3 - weight_size.d3 + 1 + pad_len;
-	unsigned conv_out_h = rd_size.d2 - weight_size.d2 + 1 + pad_len;
+	unsigned conv_out_w = rd_size.d3 - weight_size.d3 + pad_len;
+	unsigned conv_out_h = rd_size.d2 - weight_size.d2 + pad_len;
 
 	unsigned stride = KERN_ATTR_CONV_STRIDE;
 
@@ -97,7 +97,7 @@ void convolution()
 	}
 }
 
-void pooling()
+unsigned pooling()
 {
 	short *out = (short *)addr.wr_addr;
 
@@ -122,6 +122,7 @@ void pooling()
 	unsigned pad_h_test_remain = pad_h_test - mul(div(pad_h_test, stride), stride);
 
 	int och, ox, oy, kx, ky;
+	unsigned ymr = 0U;
 
 	pool_out_w = div(pool_out_w, stride);
 	pool_out_h = div(pool_out_h, stride);
@@ -152,6 +153,8 @@ void pooling()
 								max = conv_buf[och][iy][ix];
 					}
 				out[mul(och, OD23) + mul(oy, WR_SIZE_D3) + ox] = (short)(max >> FRAC_BIT);
+				++ymr;
 			}
 	}
+	return ymr;
 }

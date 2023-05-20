@@ -47,6 +47,6 @@ struct mem_addr
 extern struct mem_addr addr;
 
 void convolution(void);
-void pooling(void);
+unsigned pooling(void);
 
 #endif
