@@ -3,7 +3,7 @@
 
 #define KB * 1024
 
-char ibuf[2 KB], wbuf[2 KB], obuf[6 KB], rbuf[50 KB];
+char ibuf[2 KB], wbuf[2 KB], obuf[50 KB], rbuf[6 KB];
 
 int main(int argc, char* argv[])
 {

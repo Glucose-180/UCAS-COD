@@ -95,7 +95,7 @@ void convolution()
 								temp += in[mul(ich, RD23) + mul(iy, rd_size.d3) + ix] * weight[mul(och, mul(WD231, weight_size.d1)) + mul(ich, WD231) + mul(weight_size.d3, wy) + wx + 1];
 							/* '*' is still used here */
 						}
-					out[mul(och, Chw) + mul(oy, CBUF_W) + ox] = (short)(temp >> FRAC_BIT)
+					out[mul(och, Chw) + mul(oy, CBUF_W) + ox] = (short)(temp >> FRAC_BIT);
 				}
 		}
 	}
@@ -156,7 +156,7 @@ unsigned pooling()
 							if (max < (temp = out[mul(och, Chw) + mul(iy, CBUF_W) + ix]))
 								max = temp;
 					}
-				out[mul(och, OD23) + mul(oy, WR_SIZE_D3) + ox] = (short)(max >> FRAC_BIT);
+				out[mul(och, OD23) + mul(oy, WR_SIZE_D3) + ox] = max;
 				++ymr;
 			}
 	}
