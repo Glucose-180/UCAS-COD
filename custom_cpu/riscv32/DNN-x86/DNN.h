@@ -27,6 +27,8 @@
 #define KERN_ATTR_POOL_KERN_SIZE 2
 #define KERN_ATTR_POOL_STRIDE 2
 
+#define INT_MIN_G (0x80000000)
+
 struct size_vec4
 {
 	unsigned d0;
