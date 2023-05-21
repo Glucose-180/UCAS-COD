@@ -90,11 +90,11 @@ void convolution()
 	short *weight = (short *)addr.weight_addr;
 	short *out = (short *)addr.wr_addr;
 
-	unsigned output_offset = 0;
-	unsigned input_offset = 0;
+	//unsigned output_offset = 0;
+	//unsigned input_offset = 0;
 
-	unsigned input_fm_w = rd_size.d3;
-	unsigned input_fm_h = rd_size.d2;
+	//unsigned input_fm_w = rd_size.d3;
+	//unsigned input_fm_h = rd_size.d2;
 
 	unsigned pad = KERN_ATTR_CONV_PAD;
 	unsigned pad_len = pad << 1;
@@ -125,7 +125,8 @@ void convolution()
 			for (oy = 0; oy < conv_size.d2; ++oy)
 				for (ox = 0; ox < conv_size.d3; ++ox)
 				{
-					int temp;
+					int temp = 0;
+					/* initialize to please compiler */
 					/* 32-bit intermediate */
 					if (ich == 0)	/* bias */
 						temp = weight[mul(och, WD231)] << FRAC_BIT;
@@ -150,11 +151,11 @@ unsigned int pooling()
 {
 	short *out = (short *)addr.wr_addr;
 
-	unsigned output_offset = 0;
-	unsigned input_offset = 0;
+//	unsigned output_offset = 0;
+//	unsigned input_offset = 0;
 
-	unsigned input_fm_w = conv_size.d3;
-	unsigned input_fm_h = conv_size.d2;
+//	unsigned input_fm_w = conv_size.d3;
+//	unsigned input_fm_h = conv_size.d2;
 
 	unsigned pad = KERN_ATTR_POOL_PAD;
 	unsigned pad_len = pad << 1;
