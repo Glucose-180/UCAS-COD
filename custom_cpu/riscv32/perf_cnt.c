@@ -9,8 +9,8 @@ static volatile uint32_t* const Counter[NCT] = {
 };
 
 const char* const Label[NCT] = {
-	"Cycle count(+)", "Cycle count(G)"
-	"Instruction count(+)", "Instruction count(G)"
+	"Cycle count(+)", "Cycle count(G)",
+	"Instruction count(+)", "Instruction count(G)",
 	"Memory access instruction count",
 	"Load instruction count", "Store instruction count",
 	"Total load cycle", "Total store cycle",

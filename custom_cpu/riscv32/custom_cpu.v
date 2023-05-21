@@ -382,7 +382,7 @@ module custom_cpu(
 	/* Performance counter 2: instruction count(Low 9 digits) */
 	reg [31:0] inst_count_l;
 	always @ (posedge clk)
-		if (rst || inst_count_l)
+		if (rst || inst_count_l == CM)
 			inst_count_l <= 32'd0;
 		else if (current_state == s_ID)
 			inst_count_l <= inst_count_l + 32'd1;
