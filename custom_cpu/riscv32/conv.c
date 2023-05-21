@@ -2,6 +2,7 @@
 #include "trap.h"
 #include "mul.h"
 #include "div.h"
+#include "perf_cnt.h"
 
 #define FRAC_BIT 10
 
@@ -254,21 +255,30 @@ int comparing()
 
 int main()
 {
-	unsigned int ymr;
+	unsigned int ymr, i;
+	Result brt;
+	// Bus Rapid Transit ()*
+	// Bench ReTurn
+	bench_prepare(&brt);
 #ifdef USE_HW_ACCEL
 	printf("Launching task...\n");
 	launch_hw_accel();
+	bench_done(&brt);
 #else
-	printf("starting convolution\n");
+	printf("Starting convolution\n");
 	convolution();
-	printf("starting pooling\n");
+	printf("Starting pooling\n");
 	ymr = pooling();
+	bench_done(&brt);
 	printf("\t%u bytes written\n", ymr);
 #endif
 
 	int result = comparing();
-	printf("benchmark finished\n");
-
+	printf("Benchmark finished:\n");
+	for (i = 0; i < NCT; ++i)
+	{
+		printf("\t%s: %u\n", Label[i], brt.ymr[i]);
+	}
 	if (result == 0) {
 		hit_good_trap();
 	} else {
