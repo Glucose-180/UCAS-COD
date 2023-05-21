@@ -210,10 +210,14 @@ unsigned int pooling()
 #ifdef USE_HW_ACCEL
 void launch_hw_accel()
 {
-	volatile int* gpio_start = (void*)(GPIO_START_ADDR);
-	volatile int* gpio_done = (void*)(GPIO_DONE_ADDR);
+	volatile int* gpio_start = (void*)(GPIO_START_ADDR);	// Write only
+	volatile int* gpio_done = (void*)(GPIO_DONE_ADDR);		// Read only
 
 	//TODO: Please add your implementation here
+	*gpio_start |= 1;	// Start
+	while (*gpio_done & 1 == 0)
+		;	// Waiting
+	// Done
 }
 #endif
 
