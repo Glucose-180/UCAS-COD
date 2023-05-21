@@ -217,7 +217,7 @@ void launch_hw_accel()
 
 	//TODO: Please add your implementation here
 	*gpio_start |= 1;	// Start
-	while (*gpio_done & 1 == 0)
+	while ((*gpio_done & 1) == 0)
 		;	// Waiting
 	// Done
 }
@@ -256,7 +256,7 @@ int comparing()
 
 int main()
 {
-	unsigned int ymr, i;
+	unsigned int i;
 	Result brt;
 	// Bus Rapid Transit ()*
 	// Bench ReTurn
@@ -266,6 +266,8 @@ int main()
 	launch_hw_accel();
 	bench_done(&brt);
 #else
+	unsigned int ymr;
+
 	printf("Starting convolution\n");
 	convolution();
 	printf("Starting pooling\n");
