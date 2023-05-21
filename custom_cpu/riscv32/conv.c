@@ -67,7 +67,8 @@ struct mem_addr
 int mul(int a, int b)
 {
 #ifndef USE_MUL
-	int ans = mul_ll(a, b);
+	//int ans = mul_ll(a, b);
+	int ans = mul_i(a, b);
 #else
 	int ans = a * b;
 #endif
@@ -271,7 +272,7 @@ int main()
 	printf("Starting convolution\n");
 	convolution();
 	printf("Starting pooling\n");
-	ymr = pooling();
+	ymr = pooling() << 1;	/* * sizeof(short) */
 	bench_done(&brt);
 	printf("\t%u bytes written\n", ymr);
 #endif
