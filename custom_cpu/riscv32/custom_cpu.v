@@ -353,76 +353,106 @@ module custom_cpu(
 			/* [SW] */
 		);
 	
-	/* Performance counter 0: cycle count */
-	reg [31:0] cycle_count;
+	localparam CM = 32'd999999999,	/* carryout max */
+		UINT32_MAX = 32'hffffffff;	/* max of 32-bit unsigned int */
+	/* Performance counter 0: cycle count(Low 9 digits) */
+	reg [31:0] cycle_count_l;
 	always @ (posedge clk)
-		if (rst)
-			cycle_count <= 32'd0;
+		if (rst || cycle_count_l == CM)
+			cycle_count_l <= 32'd0;
 		else
-			cycle_count <= cycle_count + 32'd1;
-	assign cpu_perf_cnt_0 = cycle_count;
+			cycle_count_l <= cycle_count_l + 32'd1;
+	assign cpu_perf_cnt_0 = cycle_count_l;
 
-	/* Performance counter 1: instruction count */
-	reg [31:0] inst_count;
+	/* Performance counter 1: cycle count(High G) */
+	reg [31:0] cycle_count_h;
 	always @ (posedge clk)
 		if (rst)
-			inst_count <= 32'd0;
-		else if (current_state == s_ID)
-			inst_count <= inst_count + 32'd1;
-	assign cpu_perf_cnt_1 = inst_count;
+			cycle_count_h <= 32'd0;
+		else if (cycle_count_l == CM)
+			cycle_count_h <= cycle_count_h + 32'd1;
+	assign cpu_perf_cnt_1 = cycle_count_h;
+	reg cycle_count_OF;	/* Overflow flag */
+	always @ (posedge clk)
+		if (rst)
+			cycle_count_OF <= 1'b0;
+		else if (cycle_count_h == UINT32_MAX)
+			cycle_count_OF <= 1'b1;	/* Overflow! */
 
-	/* Performance counter 2: memory access instruction count */
+	/* Performance counter 2: instruction count(Low 9 digits) */
+	reg [31:0] inst_count_l;
+	always @ (posedge clk)
+		if (rst || inst_count_l)
+			inst_count_l <= 32'd0;
+		else if (current_state == s_ID)
+			inst_count_l <= inst_count_l + 32'd1;
+	assign cpu_perf_cnt_2 = inst_count_l;
+
+	/* Performance counter 3: instruction count(Hign G)  */
+	reg [31:0] inst_count_h;
+	always @ (posedge clk)
+		if (rst)
+			inst_count_h <= 32'd0;
+		else if (inst_count_l == CM)
+			inst_count_h <= inst_count_h + 32'd1;
+	assign cpu_perf_cnt_3 = inst_count_h;
+	reg inst_count_OF;	/* Overflow flag */
+	always @ (posedge clk)
+		if (rst)
+			inst_count_OF <= 1'b0;
+		else if (inst_count_h == UINT32_MAX)
+			inst_count_OF <= 1'b1;	/* Overflow! */
+
+	/* Performance counter 4: memory access instruction count */
 	reg [31:0] mainst_count;
 	always @ (posedge clk)
 		if (rst)
 			mainst_count <= 32'd0;
 		else if (current_state == s_ID && (Itype_L || Stype))
 			mainst_count <= mainst_count + 32'd1;
-	assign cpu_perf_cnt_2 = mainst_count;
+	assign cpu_perf_cnt_4 = mainst_count;
 
-	/* Performance counter 3: load instruction count */
+	/* Performance counter 5: load instruction count */
 	reg [31:0] ldinst_count;
 	always @ (posedge clk)
 		if (rst)
 			ldinst_count <= 32'd0;
 		else if (current_state == s_ID && Itype_L)
 			ldinst_count <= ldinst_count + 32'd1;
-	assign cpu_perf_cnt_3 = ldinst_count;
+	assign cpu_perf_cnt_5 = ldinst_count;
 
-	/* Performance counter 4: store instruction count */
+	/* Performance counter 6: store instruction count */
 	reg [31:0] stinst_count;
 	always @ (posedge clk)
 		if (rst)
 			stinst_count <= 32'd0;
 		else if (current_state == s_ID && Stype)
 			stinst_count <= stinst_count + 32'd1;
-	assign cpu_perf_cnt_4 = stinst_count;
+	assign cpu_perf_cnt_6 = stinst_count;
 
-	/* Performance counter 5: total load cycle count */
+	/* Performance counter 7: total load cycle count */
 	reg [31:0] ld_cycle_count;
 	always @ (posedge clk)
 		if (rst)
 			ld_cycle_count <= 32'd0;
 		else if (current_state == s_LD || current_state == s_RDW)
 			ld_cycle_count <= ld_cycle_count + 32'd1;
-	assign cpu_perf_cnt_5 = ld_cycle_count;
+	assign cpu_perf_cnt_7 = ld_cycle_count;
 
-	/* Performance counter 6: total store cycle count */
+	/* Performance counter 8: total store cycle count */
 	reg [31:0] st_cycle_count;
 	always @ (posedge clk)
 		if (rst)
 			st_cycle_count <= 32'd0;
 		else if (current_state == s_ST)
 			st_cycle_count <= st_cycle_count + 32'd1;
-	assign cpu_perf_cnt_6 = st_cycle_count;
+	assign cpu_perf_cnt_8 = st_cycle_count;
 	
-	/* Performance counter 7: NOP count */
-	reg [31:0] nop_count;
-	always @ (posedge clk)
-		if (rst)
-			nop_count <= 32'd0;
-		else if (current_state == s_ID && IR == 32'h13)
-			nop_count <= nop_count + 32'd1;
-	assign cpu_perf_cnt_7 = nop_count;
+	/* Performance counter 9: overflow flags */
+	assign cpu_perf_cnt_9 = { 30'd0,inst_count_OF,cycle_count_OF };
+	/*	0: Neither
+		1: cycle_count is overflow
+		2: inst_count is overflow
+		3: both	*/
 
 endmodule
