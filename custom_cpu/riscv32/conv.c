@@ -126,11 +126,12 @@ void convolution()
 			for (oy = 0; oy < conv_size.d2; ++oy)
 				for (ox = 0; ox < conv_size.d3; ++ox)
 				{
-					int temp = 0;
-					/* initialize to please compiler */
+					int temp;
 					/* 32-bit intermediate */
 					if (ich == 0)	/* bias */
 						temp = weight[mul(och, WD231)] << FRAC_BIT;
+					else
+						temp = 0;
 					for (wy = 0; wy < weight_size.d2; ++wy)
 						for (wx = 0; wx < weight_size.d3; ++wx)
 						{
@@ -142,7 +143,11 @@ void convolution()
 								temp += mul(in[mul(ich, RD23) + mul(iy, rd_size.d3) + ix], weight[mul(och, mul(WD231, weight_size.d1)) + mul(ich, WD231) + mul(weight_size.d3, wy) + wx + 1]);
 							/* '*' is still used here */
 						}
-					out[mul(och, Chw) + mul(oy, CBUF_W) + ox] = (short)(temp >> FRAC_BIT);
+					if (ich == 0)
+						/* Set the value for the first time */
+						out[mul(och, Chw) + mul(oy, CBUF_W) + ox] = (short)(temp >> FRAC_BIT);
+					else	/* Add to old value */
+						out[mul(och, Chw) + mul(oy, CBUF_W) + ox] += (short)(temp >> FRAC_BIT);
 				}
 		}
 	}
