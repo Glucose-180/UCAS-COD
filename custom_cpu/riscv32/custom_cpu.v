@@ -92,7 +92,9 @@ module custom_cpu(
 	wire [1:0] SFTop;
 
 	/* For multiplier */
-	wire [31:0] MULT_A, MULT_B, MULT_res;
+	wire [31:0] MULT_A, MULT_B;
+	wire [63:0] MULT_res;
+	wire MUTL_rst, MULT_done;
 
 	reg [31:0] ASR;	/* ALU & SFT reg */
 
@@ -155,7 +157,8 @@ module custom_cpu(
 	);
 	/* Instantiation of the multipier module */
 	multiplier MULT(
-		.A(MULT_A), .B(MULT_B), .P(MULT_res)
+		.A(MULT_A), .B(MULT_B), .P(MULT_res),
+		.clk(clk), .rst(MULT_rst), .done(MULT_done)
 	);
 
 	/* FSM: state switch */
@@ -185,7 +188,9 @@ module custom_cpu(
 		s_ID:	/* Instruction decoding */
 			next_state = s_EX;
 		s_EX:	/* Executing */
-			if (Btype)
+			if (MUL && !MULT_done)
+				next_state = s_EX;
+			else if (Btype)
 				next_state = s_IF;
 			else if (Rtype || Itype_CS || Utype || Jtype || Itype_J)
 				next_state = s_WB;
@@ -256,8 +261,8 @@ module custom_cpu(
 			ASR <= SFT_res;
 		else if (current_state == s_EX && Utype)
 			ASR <= Imm;	/* [LUI] */
-		else if (current_state == s_EX && MUL)
-			ASR <= MULT_res;	/* [MUL] */
+		else if (current_state == s_EX && MUL && MULT_done)
+			ASR <= MULT_res[31:0];	/* [MUL] */
 		else if (current_state == s_EX ||
 			current_state == s_ID && (Btype || Jtype || Itype_J))
 			ASR <= ALU_res;
@@ -311,8 +316,9 @@ module custom_cpu(
 	);
 	assign SFTop = { Funct3[2],Funct7[5] };
 	/* MULT */
-	assign MULT_A = {32{current_state == s_EX}} & RR1,
-		MULT_B = {32{current_state == s_EX}} & RR2;
+	assign MULT_A = {32{current_state == s_ID}} & RF_rdata1,
+		MULT_B = {32{current_state == s_ID}} & RF_rdata2;
+	assign MULT_rst = (current_state == s_ID && MUL);
 	/* RF */
 	assign RF_raddr1 = IR[19:15],
 		RF_raddr2 = IR[24:20],

@@ -141,7 +141,6 @@ void convolution()
 							/* Can I believe that the compiler will optimize these two expressions? */
 							if (ix >= 0 && ix < rd_size.d3 && iy >= 0 && iy < rd_size.d2)
 								temp += mul(in[mul(ich, RD23) + mul(iy, rd_size.d3) + ix], weight[mul(och, mul(WD231, weight_size.d1)) + mul(ich, WD231) + mul(weight_size.d3, wy) + wx + 1]);
-							/* '*' is still used here */
 						}
 					if (ich == 0)
 						/* Set the value for the first time */
