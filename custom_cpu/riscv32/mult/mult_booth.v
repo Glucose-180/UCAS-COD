@@ -17,7 +17,7 @@ module multiplier(
     /* counter C */
     localparam DW = 5'd31,   /* `DATA_WIDTH */
         ZEROy = 5'd0,
-        ZEROd = 32'd0;
+        ZEROd = 33'd0;
     reg [4:0] ymr;
 
     reg [`DATA_WIDTH + 1:0] ACC, AX, Q;
