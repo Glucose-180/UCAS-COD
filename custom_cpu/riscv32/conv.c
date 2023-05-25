@@ -43,7 +43,7 @@
 //static int conv_buf[WR_SIZE_D1][CBUF_H][CBUF_W];
 /* NOTE: there has 2*FRAC_BIT frac bits */
 
-static const unsigned WD231 = WEIGHT_SIZE_D2 * WEIGHT_SIZE_D3 + 1;
+static const unsigned WD1231 = WEIGHT_SIZE_D1 * (WEIGHT_SIZE_D2 * WEIGHT_SIZE_D3 + 1);
 static const unsigned RD23 = RD_SIZE_D2 * RD_SIZE_D3;
 static const unsigned OD23 = WR_SIZE_D2 * WR_SIZE_D3;
 static const unsigned Chw = CBUF_H * CBUF_W;
@@ -129,7 +129,7 @@ void convolution()
 					int temp;
 					/* 32-bit intermediate */
 					if (ich == 0)	/* bias */
-						temp = weight[mul(och, WD231)] << FRAC_BIT;
+						temp = weight[mul(och, WD1231)] << FRAC_BIT;
 					else
 						temp = 0;
 					for (wy = 0; wy < weight_size.d2; ++wy)
@@ -140,7 +140,7 @@ void convolution()
 							ix = wx + mul(ox, stride) - pad;
 							/* Can I believe that the compiler will optimize these two expressions? */
 							if (ix >= 0 && ix < rd_size.d3 && iy >= 0 && iy < rd_size.d2)
-								temp += mul(in[mul(ich, RD23) + mul(iy, rd_size.d3) + ix], weight[mul(och, mul(WD231, weight_size.d1)) + mul(ich, WD231) + mul(weight_size.d3, wy) + wx + 1]);
+								temp += mul(in[mul(ich, RD23) + mul(iy, rd_size.d3) + ix], weight[mul(och, mul(WD1231, weight_size.d1)) + mul(ich, WD1231) + mul(weight_size.d3, wy) + wx + 1]);
 						}
 					if (ich == 0)
 						/* Set the value for the first time */
