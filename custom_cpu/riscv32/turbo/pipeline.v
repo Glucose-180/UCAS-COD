@@ -54,7 +54,7 @@ module stage_IF(
 			else
 				next_state = s_IF;
 		s_IW:
-			if (Inst_Req_Valid) begin
+			if (Inst_Valid) begin
 				if (Feedback_Branch || BFR)
 					/* Branch will happen */
 					next_state = s_IF;
@@ -93,8 +93,8 @@ module stage_IF(
 			BFR <= 0;
 		else if (Feedback_Branch)
 			BFR <= 1;
-		else if ((current_state == s_IW || current_state == s_DN)
-			&& (Feedback_Branch || BFR))
+		else if ((current_state == s_IW && Inst_Valid
+			|| current_state == s_DN) && BFR)
 			/* Clear branch flag when PC is renewed */
 			BFR <= 0;
 	end
@@ -125,8 +125,8 @@ module stage_ID(
 	/* Connect to Regfile */
 	input [31:0] RF_rdata1,
 	input [31:0] RF_rdata2,
-	input [4:0] RF_raddr1,
-	input [4:0] RF_raddr2,
+	output [4:0] RF_raddr1,
+	output [4:0] RF_raddr2,
 	
 	/* Connect to next stage */
 	output reg [31:0] PC_O,
@@ -134,8 +134,8 @@ module stage_ID(
 	output reg [31:0] RR2,
 	/* Regfile write address */
 	output reg [4:0] RAR,
-	/* Decode result: x-Type */
-	output reg [10:0] DCR,
+	/* Decode result: MAtype, x-Type, ALUop, SFTop */
+	output reg [18:0] DCR,
 	/* Decode result: Immediate */
 	output reg [31:0] Imm_R,
 	output reg Done_O,
@@ -150,7 +150,7 @@ module stage_ID(
 );
 
 	wire clk;
-	reg LPR;	/* Load pending flag reg */
+	//reg LPR;	/* Load pending flag reg */
 
 	/* Decode */
 	wire Rtype, Itype_CS, Itype_L, Stype,
@@ -163,6 +163,16 @@ module stage_ID(
 	wire [2:0] Funct3;
 
 	wire [31:0] next_PC_temp;
+
+	wire [2:0] ALUop;
+	wire [1:0] SFTop;
+
+	wire [4:0] RF_waddr;
+
+	/* RAW data correlation */
+	wire RAW1, RAW2;
+
+	wire [2:0] MA_type;
 
 	/* CONST */
 	localparam s_INIT = 9'h1, s_IF = 9'h2, s_IW = 9'h4,
@@ -221,11 +231,80 @@ module stage_ID(
 
 	/* Done_O */
 	always @ (posedge clk) begin
-		if (Done_I && !Feedback_Branch)
+		if (rst)
+			Done_O <= 0;
+		else if (Done_I && !Feedback_Branch)
 			Done_O <= 1;
 		else
 			Done_O <= 0;
 	end
 
-	// TODO: ... Add ALUop and SFTop, ...
+	assign ALUop = (
+			{3{Rtype}} & (Funct3 | { 2'd0,Funct7[5] }) |
+			{3{Itype_CS}} & Funct3 |
+			/* Well designed! */
+			{3{Itype_L || Stype || Utype || Jtype || Itype_J}} & ALU_ADD |
+			{3{Btype}} & { 1'd0,Funct3[2],~(Funct3[2] ^ Funct3[1]) }
+			/* SUB, SLT, SLTU */
+		);
+	assign SFTop = { Funct3[2],Funct7[5] };
+
+	/* DCR */
+	always @ (posedge clk) begin
+		if (Done_I && !Feedback_Branch)
+			DCR <= {
+/* 18~16 */		MA_type,	/* Funct3 */
+/* 15~12 */		Rtype,Itype_CS,Itype_L,Itype_J,
+/* 11~7 */		Stype,Utype,Btype,Jtype,MUL,
+/* 6~0 */		Itype,SFTtype,ALUop,SFTop
+			};
+	end
+
+	assign MA_type = Funct3;
+
+	/* Imm_R */
+	always @ (posedge clk) begin
+		if (Done_I && !Feedback_Branch)
+			Imm_R <= Imm;
+	end
+
+	assign RF_raddr1 = IR[19:15],
+		RF_raddr2 = IR[24:20],
+		/* Only this 4 types have wirting request */
+		RF_waddr = {5{Rtype || Itype || Utype || Jtype}} & IR[11:7];
+
+	/* RAR */
+	always @ (posedge clk) begin
+		if (rst)
+			RAR <= 5'd0;
+		else if (Done_I && !Feedback_Branch)
+			RAR <= RF_waddr;
+	end
+
+	assign RAW1 = (RAR != 5'd0 && RF_raddr1 == RAR),
+		RAW2 = (RAR != 5'd0 && RF_raddr2 == RAR);
+	
+	/* RR1 and RR2 */
+	always @ (posedge clk) begin
+		if (RAW1) begin
+			if (DCR[13])
+				/* The last inst is LOAD */
+				RR1 <= MDR_of_MA;
+			else
+				RR1 <= ASR_of_EX;
+		end
+		else
+			RR1 <= RF_rdata1;
+	end
+	always @ (posedge clk) begin
+		if (RAW2) begin
+			if (DCR[13])
+				/* The last inst is LOAD */
+				RR2 <= MDR_of_MA;
+			else
+				RR2 <= ASR_of_EX;
+		end
+		else
+			RR2 <= RF_rdata2;
+	end
 endmodule
