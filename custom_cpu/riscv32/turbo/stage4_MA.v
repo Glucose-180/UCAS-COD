@@ -59,6 +59,12 @@ module stage_MA(
 	/* Funct3 */
 	reg [2:0] F3R;
 
+	wire [7:0] LoadB;
+	wire [15:0] LoadH;
+
+	/* Serve as a flag of virtual initial state */
+	reg IFR;
+
 	/* FSM 1 */
 	always @ (posedge clk) begin
 		if (rst)
@@ -116,12 +122,24 @@ module stage_MA(
 	/* MDR */
 	always @ (posedge clk) begin
 		if (Done_I && current_state == s_WT && next_state == s_ST)
-			/* Store instruction */
+			/* For Store instruction */
 			MDR <= WDW;
 		else if (current_state == s_RDW && next_state == s_DN)
-			/* Load instruction */
-			MDR <= Read_data;
+			/* For Load instruction */
+			MDR <= (
+				{32{Funct3[1:0] == 2'b00}} &
+					{ (Funct3[2] ? 24'd0 : {24{LoadB[7]}}),LoadB } |
+				/* [LBU], [LB] */
+				{32{Funct3[1:0] == 2'b01}} &
+					{ (Funct3[2] ? 16'd0 : {24{LoadH[15]}}),LoadH } |
+				/* [LHU], [LH] */
+				{32{Funct3[1:0] == 2'b10}} & Read_data
+				/* [LW] */
+			);
 	end
+
+	assign LoadB = Read_data[{ MAR[1:0],3'd0 } +: 8],
+		LoadH = Read_data[{ MAR[1],4'd0 } +: 16];
 
 	/* MAR */
 	always @ (posedge clk) begin
@@ -129,9 +147,17 @@ module stage_MA(
 			MAR <= MAddr_I;
 	end
 
+	assign RWD = {32{Done_O}} & (
+		(current_state == s_WT) ? MAR : MDR
+		/* MAR for not memory access instruction
+		MDR for Load instruction */
+	);
+
 	/* RAR */
 	always @ (posedge clk) begin
-		if (Done_I && current_state == s_WT)
+		if (rst)
+			RAR <= 5'd0;
+		else if (Done_I && current_state == s_WT)
 			RAR <= RWA;
 	end
 
@@ -154,6 +180,28 @@ module stage_MA(
 			Done_O <= 0;
 	end
 
+	assign Feedback_Mem_Acc = (
+		(rst != 1) &&
+		(current_state != s_WT) &&
+		(current_state != s_DN)
+	);
 
+	assign MAddr_O = { MAR[31:2],2'd0 };
+	
+	assign MemWrite = (current_state == s_ST),
+		MemRead = (current_state == s_LD);
+
+	assign Write_data = MDR,
+		Write_strb = WSR;
+
+	assign Read_data_Ready = (
+		IFR || (current_state == s_RDW)
+	);
+	
+	/* IFR */
+	always @ (posedge clk) begin
+		IFR <= rst;
+		/* To yield a virtual initial state */
+	end
 
 endmodule
