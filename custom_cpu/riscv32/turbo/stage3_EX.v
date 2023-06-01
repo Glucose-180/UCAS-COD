@@ -7,14 +7,14 @@ module stage_EX(
 
 	/* Connect to last stage */
 	/* Decode result */
-	input [19:0] DCW,
+	input [19:0] Decode_res,
 	/* Regfile read data */
-	input [31:0] RD1,
-	input [31:0] RD2,
+	input [31:0] RF_rdata1,
+	input [31:0] RF_rdata2,
 	input Done_I,
 	input [31:0] PC_I,
 	/* Regfile write address */
-	input [4:0] RWA,
+	input [4:0] RF_wdata,
 	input [31:0] Imm,
 
 	/* Connect to next stage */
@@ -57,27 +57,27 @@ module stage_EX(
 	/* Effective clock */
 	assign clk = (clk_I & (rst | ~Feedback_Mem_Acc));
 
-	assign Funct3 = DCW[18:16];
+	assign Funct3 = Decode_res[18:16];
 
 	/* ALU */
-	assign ALUop = DCW[4:2],
-		ALU_A = (DCW[12] || DCW[10] || DCW[8] ? PC_I : RD1),
+	assign ALUop = Decode_res[4:2],
+		ALU_A = (Decode_res[12] || Decode_res[10] || Decode_res[8] ? PC_I : RF_rdata1),
 		/* Itype_J, Utype, Jtype */
 		ALU_B = (
-			{32{DCW[15] || DCW[9]}} & RD2 |
+			{32{Decode_res[15] || Decode_res[9]}} & RF_rdata2 |
 			/* Rtype, Btype */
-			{32{DCW[14] || DCW[13] || DCW[11] || DCW[10]}} & Imm |
+			{32{Decode_res[14] || Decode_res[13] || Decode_res[11] || Decode_res[10]}} & Imm |
 			/* Itype_CS, Itype_L, Stype, Utype */
-			{32{DCW[8] || DCW[12]}} & 32'd4
+			{32{Decode_res[8] || Decode_res[12]}} & 32'd4
 			/* Jtype, Itype_J */
 		);
 	
 	/* SFT */
-	assign SFTop = DCW[1:0],
-		SFT_A = RD1,
+	assign SFTop = Decode_res[1:0],
+		SFT_A = RF_rdata1,
 		SFT_B = (
-		{5{DCW[15]}} & RD2[4:0] |	/* Rtype */
-		{5{DCW[14]}} & Imm[4:0]		/* Itype_CS */
+		{5{Decode_res[15]}} & RF_rdata2[4:0] |	/* Rtype */
+		{5{Decode_res[14]}} & Imm[4:0]		/* Itype_CS */
 	);
 
 	/* Instantiation of the ALU module */
@@ -91,14 +91,14 @@ module stage_EX(
 	);
 
 	assign Feedback_Branch = Done_I & (
-		DCW[19] | /* [AUIPC] */
-		DCW[9] & (Funct3[2] ^ Funct3[0] ^ ALU_ZF) |
+		Decode_res[19] | /* [AUIPC] */
+		Decode_res[9] & (Funct3[2] ^ Funct3[0] ^ ALU_ZF) |
 		/* Btype */
-		DCW[8] | DCW[12]
+		Decode_res[8] | Decode_res[12]
 		/* Jtype, Itype-J */
 	);
 
-	assign Product = RD1 * RD2;
+	assign Product = RF_rdata1 * RF_rdata2;
 
 	/* Done_O */
 	always @ (posedge clk) begin
@@ -114,8 +114,8 @@ module stage_EX(
 			MCR <= 6'd0;
 		else if (Done_I)
 			MCR <= {
-				DCW[11],	/* MemW */
-				DCW[13],	/* Itype_L */
+				Decode_res[11],	/* MemW */
+				Decode_res[13],	/* Itype_L */
 				Write_strb
 			};
 	end
@@ -131,13 +131,13 @@ module stage_EX(
 
 	/* WDR */
 	always @ (posedge clk) begin
-		if (Done_I && DCW[11])	/* MemW */
+		if (Done_I && Decode_res[11])	/* MemW */
 			WDR <= (
-				{32{Funct3[1:0] == 2'b00}} & (RD2 << { ALU_res[1:0],3'd0 }) |
+				{32{Funct3[1:0] == 2'b00}} & (RF_rdata2 << { ALU_res[1:0],3'd0 }) |
 				/* [SB] */
-				{32{Funct3[1:0] == 2'b01}} & (RD2 << { ALU_res[1],4'd0 }) |
+				{32{Funct3[1:0] == 2'b01}} & (RF_rdata2 << { ALU_res[1],4'd0 }) |
 				/* [SH] */
-				{32{Funct3[1:0] == 2'b10}} & RD2
+				{32{Funct3[1:0] == 2'b10}} & RF_rdata2
 				/* [SW] */
 			);
 	end
@@ -145,13 +145,13 @@ module stage_EX(
 	/* ASR */
 	always @ (posedge clk) begin
 		if (Done_I) begin
-			if (DCW[19])
+			if (Decode_res[19])
 				/* [AUIPC] */
 				ASR <= ALU_res;
-			else if (DCW[7])
+			else if (Decode_res[7])
 				/* [MUL] */
 				ASR <= Product[31:0];
-			else if (DCW[5])
+			else if (Decode_res[5])
 				/* SFTtype */
 				ASR <= SFT_res;
 			else
@@ -164,7 +164,7 @@ module stage_EX(
 		if (rst)
 			RAR <= 5'd0;
 		else if (Done_I)
-			RAR <= RWA;
+			RAR <= RF_wdata;
 	end
 
 	/* PC_O */

@@ -6,7 +6,7 @@ module stage_ID(
 	input rst,
 
 	/* Connect to last stage */
-	input [31:0] IR,
+	input [31:0] Inst,
 	input Done_I,
 	input PC_I,
 	output reg [31:0] next_PC,
@@ -91,18 +91,18 @@ module stage_ID(
 	assign Itype = Itype_CS || Itype_J || Itype_L;
 	assign SFTtype = (Itype_CS || Rtype) && (Funct3[1:0] == 2'b01);
 	assign Imm = {
-/* 31 */	IR[31],
-/* 30~20 */	(Utype ? IR[30:20] : {11{IR[31]}}),
-/* 19~12 */	(Utype || Jtype ? IR[19:12] : {8{IR[31]}}),
-/* 11 */	(Itype || Stype) & IR[31] |
-			Btype & IR[7] |	Jtype & IR[20],
-/* 10~5 */	~{6{Utype}} & IR[30:25],
-/* 4~1 */	{4{Itype  || Jtype}} & IR[24:21] |
-			{4{Stype || Btype}} & IR[11:8],
-/* 0 */		Itype & IR[20] | Stype & IR[7]
+/* 31 */	Inst[31],
+/* 30~20 */	(Utype ? Inst[30:20] : {11{Inst[31]}}),
+/* 19~12 */	(Utype || Jtype ? Inst[19:12] : {8{Inst[31]}}),
+/* 11 */	(Itype || Stype) & Inst[31] |
+			Btype & Inst[7] |	Jtype & Inst[20],
+/* 10~5 */	~{6{Utype}} & Inst[30:25],
+/* 4~1 */	{4{Itype  || Jtype}} & Inst[24:21] |
+			{4{Stype || Btype}} & Inst[11:8],
+/* 0 */		Itype & Inst[20] | Stype & Inst[7]
 	};
-	assign Opcode = IR[6:0];
-	assign Funct3 = IR[14:12], Funct7 = IR[31:25];
+	assign Opcode = Inst[6:0];
+	assign Funct3 = Inst[14:12], Funct7 = Inst[31:25];
 
 	assign next_PC_temp = PC_I + Imm;
 
@@ -160,10 +160,10 @@ module stage_ID(
 			Imm_R <= Imm;
 	end
 
-	assign RF_raddr1 = IR[19:15],
-		RF_raddr2 = IR[24:20],
+	assign RF_raddr1 = Inst[19:15],
+		RF_raddr2 = Inst[24:20],
 		/* Only this 4 types have wirting request */
-		RF_waddr = {5{Rtype || Itype || Utype || Jtype}} & IR[11:7];
+		RF_waddr = {5{Rtype || Itype || Utype || Jtype}} & Inst[11:7];
 
 	/* RAR */
 	always @ (posedge clk) begin

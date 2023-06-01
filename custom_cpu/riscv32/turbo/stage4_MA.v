@@ -10,19 +10,19 @@ module stage_MA(
 	input Done_I,
 	/* Memory control:
 	MemR, MemW and Write_strb */
-	input [5:0] MCW,
+	input [5:0] Mem_Ctrl,
 	/* Mem write data */
-	input [31:0] WDW,
+	input [31:0] Mem_wdata,
 	/* ALU, SFT result, also holds
 	Mem write address */
-	input [31:0] MAddr_I,
+	input [31:0] Mem_Addr_I,
 	/* Regfile write address */
-	input [4:0] RWA,
+	input [4:0] RF_waddr,
 	/* Funct3 */
 	input [2:0] Funct3,
 
 	/* Memory request channel */
-	output [31:0] MAddr_O,
+	output [31:0] Mem_Addr_O,
 	output MemWrite,
 	output [31:0] Write_data,
 	output [3:0] Write_strb,
@@ -39,7 +39,7 @@ module stage_MA(
 	output reg Done_O,
 	/* Regfile write data:
 	also used to deal with RAW */
-	output wire [31:0] RWD,
+	output wire [31:0] RF_wdata,
 	/* Regfile write address */
 	output reg [4:0] RAR,
 
@@ -79,10 +79,10 @@ module stage_MA(
 		s_WT:
 			if (Done_I == 0)
 				next_state = s_WT;
-			else if (MCW[5])
+			else if (Mem_Ctrl[5])
 				/* MemWrite */
 				next_state = s_ST;
-			else if (MCW[4])
+			else if (Mem_Ctrl[4])
 				/* MemRead */
 				next_state = s_LD;
 			else	/* Not memory access */
@@ -116,14 +116,14 @@ module stage_MA(
 	/* WSR */
 	always @ (posedge clk) begin
 		if (Done_I && current_state == s_WT)
-			WSR <= MCW[3:0];
+			WSR <= Mem_Ctrl[3:0];
 	end
 
 	/* MDR */
 	always @ (posedge clk) begin
 		if (Done_I && current_state == s_WT && next_state == s_ST)
 			/* For Store instruction */
-			MDR <= WDW;
+			MDR <= Mem_wdata;
 		else if (current_state == s_RDW && next_state == s_DN)
 			/* For Load instruction */
 			MDR <= (
@@ -144,10 +144,10 @@ module stage_MA(
 	/* MAR */
 	always @ (posedge clk) begin
 		if (Done_I && current_state == s_WT)
-			MAR <= MAddr_I;
+			MAR <= Mem_Addr_I;
 	end
 
-	assign RWD = {32{Done_O}} & (
+	assign RF_wdata = {32{Done_O}} & (
 		(current_state == s_WT) ? MAR : MDR
 		/* MAR for not memory access instruction
 		MDR for Load instruction */
@@ -158,7 +158,7 @@ module stage_MA(
 		if (rst)
 			RAR <= 5'd0;
 		else if (Done_I && current_state == s_WT)
-			RAR <= RWA;
+			RAR <= RF_waddr;
 	end
 
 	/* F3R */
@@ -186,7 +186,7 @@ module stage_MA(
 		(current_state != s_DN)
 	);
 
-	assign MAddr_O = { MAR[31:2],2'd0 };
+	assign Mem_Addr_O = { MAR[31:2],2'd0 };
 	
 	assign MemWrite = (current_state == s_ST),
 		MemRead = (current_state == s_LD);
