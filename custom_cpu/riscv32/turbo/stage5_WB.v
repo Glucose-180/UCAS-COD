@@ -18,8 +18,26 @@ module stage_WB(
 
 	/* Terminus */
 	/* inst retire reg */
-	output [69:0] IRR
+	output reg [69:0] IRR
 );
 
+	assign RF_wen = (Done_I && (RF_waddr != 5'd0));
+
+	/* IRR */
+	always @ (posedge clk) begin
+		if (rst)
+			IRR <= 70'd0;
+		else if (Done_I)
+			IRR <= {
+/* 69 */		RF_wen,
+/* 68~64 */		RF_waddr,
+/* 63~32 */		RF_wdata,
+/* 31~0 */		PC_I
+			};
+		else	/* Done_I == 0 */
+			IRR <= 70'd0;
+		/* For every instruction,
+		the IRR signal only exists one cycle! */
+	end
 
 endmodule
