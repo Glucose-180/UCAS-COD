@@ -91,7 +91,7 @@ module stage_EX(
 	);
 
 	assign Feedback_Branch = Done_I & (
-		Decode_res[19] | /* [AUIPC] */
+		//Decode_res[19] | /* [AUIPC] */
 		Decode_res[9] & (Funct3[2] ^ Funct3[0] ^ ALU_ZF) |
 		/* Btype */
 		Decode_res[8] | Decode_res[12]

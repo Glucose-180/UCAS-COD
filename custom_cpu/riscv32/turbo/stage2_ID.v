@@ -109,7 +109,7 @@ module stage_ID(
 	/* next_PC */
 	always @ (posedge clk) begin
 		if (Done_I && !Feedback_Branch) begin
-			if (Utype || Btype || Jtype || Itype_J)
+			if (/*Utype || */Btype || Jtype || Itype_J)
 				next_PC <= { next_PC_temp[31:2],2'd0 };
 		end
 	end

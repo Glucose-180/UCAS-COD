@@ -227,9 +227,7 @@ module custom_cpu(
 		else if (current_state == s_IF && Inst_Req_Ready)
 			PC <= ALU_res;	/* PC <= PC + 4 */
 		else if (current_state == s_EX) begin
-			if (Opcode == OC_auipc)
-				PC <= ALU_res;
-			else if (Btype && (Funct3[2] ^ Funct3[0] ^ ALU_ZF)
+			if (Btype && (Funct3[2] ^ Funct3[0] ^ ALU_ZF)
 				|| Jtype || Itype_J)
 				PC <= { ASR[31:1],1'd0 };
 		end
@@ -260,7 +258,9 @@ module custom_cpu(
 		if (current_state == s_EX && SFTtype)
 			ASR <= SFT_res;
 		else if (current_state == s_EX && Utype)
-			ASR <= Imm;	/* [LUI] */
+			ASR <= (Opcode == OC_auipc ?
+				ALU_res : Imm
+			);	/* [AUIPC], [LUI] */
 		else if (current_state == s_EX && MUL && MULT_done)
 			ASR <= MULT_res[31:0];	/* [MUL] */
 		else if (current_state == s_EX ||
