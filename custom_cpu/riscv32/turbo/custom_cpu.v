@@ -5,7 +5,7 @@ module custom_cpu(
 	input         rst,
 
 	//Instruction request channel
-	output reg [31:0] PC,
+	output [31:0] PC,
 	output        Inst_Req_Valid,
 	input         Inst_Req_Ready,
 
@@ -101,6 +101,12 @@ module custom_cpu(
 	wire [5:0] Mem_Ctrl;
 	wire [31:0] Mem_Write_data, Mem_Addr;
 
+	/* Instantiation of the register file module */
+	reg_file RF (
+		.clk(clk), .waddr(RF_waddr), .wen(RF_wen), .wdata(RF_wdata),
+		.raddr1(RF_raddr1), .raddr2(RF_raddr2), .rdata1(RF_rdata1), .rdata2(RF_rdata2)
+	);
+
 	stage_IF IF_1(
 		.clk(clk), .rst(rst),
 
@@ -115,6 +121,8 @@ module custom_cpu(
 		.next_PC(next_PC), .Feedback_Branch(Feedback_Branch),
 		.Feedback_Mem_Acc(Feedback_Mem_Acc)
 	);
+
+	assign PC = PC_12;
 
 	stage_ID ID_2(
 		.clk(clk), .rst(rst),

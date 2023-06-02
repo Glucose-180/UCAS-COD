@@ -8,7 +8,7 @@ module stage_ID(
 	/* Connect to last stage */
 	input [31:0] Inst,
 	input Done_I,
-	input PC_I,
+	input [31:0] PC_I,
 	output reg [31:0] next_PC,
 
 	/* Connect to Regfile */

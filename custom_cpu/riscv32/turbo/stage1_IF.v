@@ -82,7 +82,8 @@ module stage_IF(
 		else if (current_state == s_DN) begin
 			if (Feedback_Branch || BFR)
 				PC <= next_PC;  /* Branch */
-			else
+			else if (next_state == s_IF)
+				/* Not waiting for memory access */
 				PC <= PC + 32'd4;
 		end
 	end

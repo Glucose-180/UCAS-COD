@@ -51,7 +51,7 @@ module stage_MA(
 		s_LD = 5'b00010, s_RDW = 5'b00100,
 		s_DN = 5'b01000, s_ST = 5'b10000;
 
-	reg [5:0] current_state, next_state;
+	reg [4:0] current_state, next_state;
 
 	reg [31:0] MAR, MDR;
 	/* Write strb reg */
@@ -74,7 +74,7 @@ module stage_MA(
 	end
 
 	/* FSM 2 */
-	always @ (posedge clk) begin
+	always @ (*) begin
 		case (current_state)
 		s_WT:
 			if (Done_I == 0)
