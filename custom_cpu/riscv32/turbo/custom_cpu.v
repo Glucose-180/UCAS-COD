@@ -117,7 +117,7 @@ module custom_cpu(
 	);
 
 	stage_ID ID_2(
-		.clk_I(clk), .rst(rst),
+		.clk(clk), .rst(rst),
 
 		.Inst(Inst_12), .Done_I(Done_12),
 		.PC_I(PC_12), .next_PC(next_PC),
@@ -136,7 +136,7 @@ module custom_cpu(
 	);
 
 	stage_EX EX_3(
-		.clk_I(clk), .rst(rst),
+		.clk(clk), .rst(rst),
 
 		.Decode_res(Decode_res),
 		.RF_rdata1(RF_rdata1_23), .RF_rdata2(RF_rdata2_23),

@@ -2,7 +2,7 @@
 
 /* Instruction decode stage */
 module stage_ID(
-	input clk_I,
+	input clk,
 	input rst,
 
 	/* Connect to last stage */
@@ -40,7 +40,7 @@ module stage_ID(
 	input [31:0] MDR_of_MA
 );
 
-	wire clk;
+	//wire clk;
 	//reg LPR;	/* Load pending flag reg */
 
 	/* Decode */
@@ -75,7 +75,7 @@ module stage_ID(
 		ALU_SLTU = 3'b011, ALU_SUB = 3'b001;
 
 	/* Effective clock */
-	assign clk = (clk_I & (rst | ~Feedback_Mem_Acc));
+	//assign clk = (clk_I & (rst | ~Feedback_Mem_Acc));
 
 	/* ASSIGN */
 	assign Rtype = (Opcode == 7'b0110011),
@@ -108,7 +108,7 @@ module stage_ID(
 
 	/* next_PC */
 	always @ (posedge clk) begin
-		if (Done_I && !Feedback_Branch) begin
+		if (Done_I && !Feedback_Branch && !Feedback_Mem_Acc) begin
 			if (/*Utype || */Btype || Jtype || Itype_J)
 				next_PC <= { next_PC_temp[31:2],2'd0 };
 		end
@@ -116,7 +116,7 @@ module stage_ID(
 
 	/* PC_O */
 	always @ (posedge clk) begin
-		if (Done_I && !Feedback_Branch)
+		if (Done_I && !Feedback_Branch && !Feedback_Mem_Acc)
 			PC_O <= PC_I;
 	end
 
@@ -124,10 +124,12 @@ module stage_ID(
 	always @ (posedge clk) begin
 		if (rst)
 			Done_O <= 0;
-		else if (Done_I && !Feedback_Branch)
-			Done_O <= 1;
-		else
-			Done_O <= 0;
+		else if (!Feedback_Mem_Acc) begin
+			if (Done_I && !Feedback_Branch)
+				Done_O <= 1;
+			else
+				Done_O <= 0;
+		end
 	end
 
 	assign ALUop = (
@@ -142,7 +144,7 @@ module stage_ID(
 
 	/* DCR */
 	always @ (posedge clk) begin
-		if (Done_I && !Feedback_Branch)
+		if (Done_I && !Feedback_Branch && !Feedback_Mem_Acc)
 			DCR <= {
 /* 19 */		(Opcode == OC_auipc),
 /* 18~16 */		MA_type,	/* Funct3 */
@@ -156,7 +158,7 @@ module stage_ID(
 
 	/* Imm_R */
 	always @ (posedge clk) begin
-		if (Done_I && !Feedback_Branch)
+		if (Done_I && !Feedback_Branch && !Feedback_Mem_Acc)
 			Imm_R <= Imm;
 	end
 
@@ -169,7 +171,7 @@ module stage_ID(
 	always @ (posedge clk) begin
 		if (rst)
 			RAR <= 5'd0;
-		else if (Done_I && !Feedback_Branch)
+		else if (Done_I && !Feedback_Branch && !Feedback_Mem_Acc)
 			RAR <= RF_waddr;
 	end
 

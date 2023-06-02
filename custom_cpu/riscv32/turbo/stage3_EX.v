@@ -2,7 +2,7 @@
 
 /* Execute stage */
 module stage_EX(
-	input clk_I,
+	input clk,
 	input rst,
 
 	/* Connect to last stage */
@@ -38,7 +38,7 @@ module stage_EX(
 	input wire Feedback_Mem_Acc
 );
 
-	wire clk;
+	//wire clk;
 
 	/* For ALU and shifter */
 	wire [31:0] ALU_A, ALU_B, ALU_res;
@@ -55,7 +55,7 @@ module stage_EX(
 	wire [63:0] Product;
 	
 	/* Effective clock */
-	assign clk = (clk_I & (rst | ~Feedback_Mem_Acc));
+	//assign clk = (clk_I & (rst | ~Feedback_Mem_Acc));
 
 	assign Funct3 = Decode_res[18:16];
 
@@ -104,7 +104,7 @@ module stage_EX(
 	always @ (posedge clk) begin
 		if (rst)
 			Done_O <= 0;
-		else
+		else if (!Feedback_Mem_Acc)
 			Done_O <= Done_I;
 	end
 
@@ -112,7 +112,7 @@ module stage_EX(
 	always @ (posedge clk) begin
 		if (rst)
 			MCR <= 6'd0;
-		else if (Done_I)
+		else if (Done_I && !Feedback_Mem_Acc)
 			MCR <= {
 				Decode_res[11],	/* Stype */
 				Decode_res[13],	/* Itype_L */
@@ -144,7 +144,7 @@ module stage_EX(
 
 	/* ASR */
 	always @ (posedge clk) begin
-		if (Done_I) begin
+		if (Done_I && !Feedback_Mem_Acc) begin
 			if (Decode_res[19])
 				/* [AUIPC] */
 				ASR <= ALU_res;
@@ -163,19 +163,19 @@ module stage_EX(
 	always @ (posedge clk) begin
 		if (rst)
 			RAR <= 5'd0;
-		else if (Done_I)
+		else if (Done_I && !Feedback_Mem_Acc)
 			RAR <= RF_waddr;
 	end
 
 	/* PC_O */
 	always @ (posedge clk) begin
-		if (Done_I)
+		if (Done_I && !Feedback_Mem_Acc)
 			PC_O <= PC_I;
 	end
 
 	/* F3R */
 	always @ (posedge clk) begin
-		if (Done_I)
+		if (Done_I && !Feedback_Mem_Acc)
 			F3R <= Funct3;
 	end
 
