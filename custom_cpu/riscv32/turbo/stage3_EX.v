@@ -14,7 +14,7 @@ module stage_EX(
 	input Done_I,
 	input [31:0] PC_I,
 	/* Regfile write address */
-	input [4:0] RF_wdata,
+	input [4:0] RF_waddr,
 	input [31:0] Imm,
 
 	/* Connect to next stage */
@@ -114,7 +114,7 @@ module stage_EX(
 			MCR <= 6'd0;
 		else if (Done_I)
 			MCR <= {
-				Decode_res[11],	/* MemW */
+				Decode_res[11],	/* Stype */
 				Decode_res[13],	/* Itype_L */
 				Write_strb
 			};
@@ -164,7 +164,7 @@ module stage_EX(
 		if (rst)
 			RAR <= 5'd0;
 		else if (Done_I)
-			RAR <= RF_wdata;
+			RAR <= RF_waddr;
 	end
 
 	/* PC_O */
