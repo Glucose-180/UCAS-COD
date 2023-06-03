@@ -145,9 +145,10 @@ module stage_EX(
 	/* ASR */
 	always @ (posedge clk) begin
 		if (Done_I && !Feedback_Mem_Acc) begin
-			if (Decode_res[19])
-				/* [AUIPC] */
-				ASR <= ALU_res;
+			if (Decode_res[10])
+				/* Utype */
+				ASR <= (Decode_res[19] ? ALU_res : Imm);
+				/* [AUIPC], [LUI] */
 			else if (Decode_res[7])
 				/* [MUL] */
 				ASR <= Product[31:0];

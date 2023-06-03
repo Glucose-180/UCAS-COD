@@ -104,7 +104,8 @@ module stage_ID(
 	assign Opcode = Inst[6:0];
 	assign Funct3 = Inst[14:12], Funct7 = Inst[31:25];
 
-	assign next_PC_temp = PC_I + Imm;
+	assign next_PC_temp = (Itype_J ? RF_rdata1 : PC_I) + Imm;
+	/* Itype_J: [JALR] */
 
 	/* next_PC */
 	always @ (posedge clk) begin
