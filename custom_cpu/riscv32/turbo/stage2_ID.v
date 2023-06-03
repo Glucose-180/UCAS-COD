@@ -104,7 +104,10 @@ module stage_ID(
 	assign Opcode = Inst[6:0];
 	assign Funct3 = Inst[14:12], Funct7 = Inst[31:25];
 
-	assign next_PC_temp = (Itype_J ? RF_rdata1 : PC_I) + Imm;
+	assign next_PC_temp = (Itype_J ? (
+			{32{RAW1}} & (DCR[13] ? MDR_of_MA : ASR_of_EX) |
+			{32{~RAW1}} & (RF_rdata1)
+		) : PC_I) + Imm;
 	/* Itype_J: [JALR] */
 
 	/* next_PC */
