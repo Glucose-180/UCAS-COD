@@ -147,8 +147,8 @@ module stage_MA(
 			MAR <= Mem_Addr_I;
 	end
 
-	assign RF_wdata = {32{Done_O}} & (
-		(current_state == s_WT) ? MAR : MDR
+	assign RF_wdata = (
+		(current_state == s_WT && Done_O) ? MAR : MDR
 		/* MAR for not memory access instruction
 		MDR for Load instruction */
 	);
