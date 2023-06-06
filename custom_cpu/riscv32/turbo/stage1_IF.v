@@ -27,18 +27,33 @@ module stage_IF(
 	input wire Feedback_Mem_Acc
 );
 
-	localparam s_INIT = 4'b0001, s_IF = 4'b0010,
-		s_IW = 4'b0100, s_DN = 4'b1000;
+	localparam s_IF = 4'b0001, s_IW = 4'b0010,
+		s_DN = 4'b0100, s_TMP = 4'b1000;
+	/* TMP is a temporary state used when
+	a branch instruction is fetched */
+
+	localparam OC_jal = 7'b1101111, OC_jalr = 7'b1100111;
 	
 	reg [3:0] current_state, next_state;
 
-	/* Branch flag reg */
-	reg BFR;
+	/* Serve as a flag of virtual initial state */
+	reg IFR;
+
+	wire [6:0] Opcode;
+
+	/* A branch instruction was fetched */
+	wire Flag_Branch;
+
+	assign Opcode = IR[6:0];
+	assign Flag_Branch = (
+		Opcode == OC_jal || Opcode == OC_jalr ||
+		Opcode == 7'b1100011 /* Btype */
+	);
 
 	/* FSM 1 */
 	always @ (posedge clk) begin
 		if (rst)
-			current_state <= s_INIT;
+			current_state <= s_IF;
 		else
 			current_state <= next_state;
 	end
@@ -46,8 +61,6 @@ module stage_IF(
 	/* FSM 2 */
 	always @ (*) begin
 		case (current_state)
-		s_INIT:
-			next_state = s_IF;
 		s_IF:
 			if (Inst_Req_Ready)
 				next_state = s_IW;
@@ -55,7 +68,7 @@ module stage_IF(
 				next_state = s_IF;
 		s_IW:
 			if (Inst_Valid) begin
-				if (Feedback_Branch || BFR)
+				if (Feedback_Branch)
 					/* Branch will happen */
 					next_state = s_IF;
 				else
@@ -63,10 +76,17 @@ module stage_IF(
 			end
 			else
 				next_state = s_IW;
-		default:	/* s_DN */
+		s_DN:
 			if (Feedback_Mem_Acc)
 				/* Pending */
 				next_state = s_DN;
+			else if (Flag_Branch)
+				next_state = s_TMP;
+			else
+				next_state = s_IF;
+		default:	/* s_TMP */
+			if (Feedback_Mem_Acc)
+				next_state = s_TMP;
 			else
 				next_state = s_IF;
 		endcase
@@ -76,28 +96,11 @@ module stage_IF(
 	always @ (posedge clk) begin
 		if (rst)
 			PC <= 32'd0;
-		else if (current_state == s_IW
-			&& (Feedback_Branch || BFR))
-			PC <= next_PC;
-		else if (current_state == s_DN) begin
-			if (Feedback_Branch || BFR)
-				PC <= next_PC;  /* Branch */
-			else if (next_state == s_IF)
-				/* Not waiting for memory access */
+		else if (current_state == s_DN && next_state == s_IF ||
+			current_state == s_TMP && !Feedback_Branch)
 				PC <= PC + 32'd4;
-		end
-	end
-
-	/* BFR */
-	always @ (posedge clk) begin
-		if (rst)		
-			BFR <= 0;
-		else if (Feedback_Branch)
-			BFR <= 1;
-		else if ((current_state == s_IW && Inst_Valid
-			|| current_state == s_DN) && BFR)
-			/* Clear branch flag when PC is renewed */
-			BFR <= 0;
+		else if (current_state == s_TMP && Feedback_Branch)
+				PC <= next_PC;
 	end
 
 	/* IR */
@@ -106,8 +109,14 @@ module stage_IF(
 			IR <= Instruction;
 	end
 
+	/* IFR */
+	always @ (posedge clk) begin
+		IFR <= rst;
+		/* To yield a virtual initial state */
+	end
+
 	assign Done_O = (current_state == s_DN);
 
-	assign Inst_Req_Valid = (current_state == s_IF),
-		Inst_Ready = (current_state == s_IW || current_state == s_INIT);
+	assign Inst_Req_Valid = (current_state == s_IF && !IFR),
+		Inst_Ready = (current_state == s_IW || IFR);
 endmodule
