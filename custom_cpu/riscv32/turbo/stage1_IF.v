@@ -67,13 +67,8 @@ module stage_IF(
 			else
 				next_state = s_IF;
 		s_IW:
-			if (Inst_Valid) begin
-				if (Feedback_Branch)
-					/* Branch will happen */
-					next_state = s_IF;
-				else
-					next_state = s_DN;
-			end
+			if (Inst_Valid)
+				next_state = s_DN;
 			else
 				next_state = s_IW;
 		s_DN:
