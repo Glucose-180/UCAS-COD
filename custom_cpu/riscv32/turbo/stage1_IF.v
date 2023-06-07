@@ -62,7 +62,8 @@ module stage_IF(
 	always @ (*) begin
 		case (current_state)
 		s_IF:
-			if (Inst_Req_Ready)
+			if (!IFR && Inst_Req_Ready)
+				/* IFR: Virtual init state */
 				next_state = s_IW;
 			else
 				next_state = s_IF;
@@ -92,7 +93,7 @@ module stage_IF(
 		if (rst)
 			PC <= 32'd0;
 		else if (current_state == s_DN && next_state == s_IF ||
-			current_state == s_TMP && !Feedback_Branch)
+			current_state == s_TMP && !Feedback_Branch && next_state == s_IF)
 				PC <= PC + 32'd4;
 		else if (current_state == s_TMP && Feedback_Branch)
 				PC <= next_PC;
@@ -112,6 +113,6 @@ module stage_IF(
 
 	assign Done_O = (current_state == s_DN);
 
-	assign Inst_Req_Valid = (current_state == s_IF && !IFR),
-		Inst_Ready = (current_state == s_IW || IFR);
+	assign Inst_Req_Valid = (!rst && current_state == s_IF && !IFR),
+		Inst_Ready = (rst || current_state == s_IW || IFR);
 endmodule

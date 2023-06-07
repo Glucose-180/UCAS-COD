@@ -195,7 +195,7 @@ module stage_MA(
 		Write_strb = WSR;
 
 	assign Read_data_Ready = (
-		IFR || (current_state == s_RDW)
+		rst || IFR || (current_state == s_RDW)
 	);
 	
 	/* IFR */
