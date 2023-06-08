@@ -12,7 +12,7 @@ module data_array(
 	output [`DARRAY_DATA_WIDTH - 1:0] rdata
 );
 
-	reg [`DARRAY_DATA_WIDTH-1:0] array[ 1 << `DARRAY_ADDR_WIDTH - 1 : 0];
+	reg [`DARRAY_DATA_WIDTH-1:0] array[ (1 << `DARRAY_ADDR_WIDTH) - 1 : 0];
 	
 	always @(posedge clk)
 	begin

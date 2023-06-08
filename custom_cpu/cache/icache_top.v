@@ -60,9 +60,9 @@ module icache_top (
 
 	reg [31:0] CAR;	/* CPU address reg */
 
-	wire [`CACHE_WAY * `LOG_2WAY - 1:0] Order_at_raddr,
-		Order_at_waddr, Order_Offset;
-	wire [`CACHE_WAY - 1:0] Valid_at_raddr, Valid_at_waddr;
+	wire [`CACHE_WAY * `LOG_2WAY - 1:0] Order_at_addr,
+		Order_Offset;
+	wire [`CACHE_WAY - 1:0] Valid_at_addr, Valid_at_waddr;
 
 	wire [`TAG_LEN - 1:0] Addr_Tag;
 	wire [`ADDR_WIDTH - 1:0] Addr_Index;
@@ -90,12 +90,17 @@ module icache_top (
 	/* The HIT block of cache, it has 8 words */
 	wire [`LINE_LEN - 1:0] Block_Hit;
 
+	/* Buffer for reading memory */
+	reg [`LINE_LEN - 1:0] Buffer;
+
 	/* Hit flag for every way at certain address */
 	wire [`CACHE_WAY - 1:0] Flag_Hit;
 	/* Miss flag, used to decide which way will be refilled */
 	wire [`CACHE_WAY - 1:0] Flag_Miss;
 	/* Target flag, used to point which way is hit or to be refilled */
 	wire [`CACHE_WAY - 1:0] Flag_Target;
+	/* reg of Flag_Target, used for refilling */
+	reg [`CACHE_WAY - 1:0] FTR;
 
 	/* Order of target block, hit or to be refilled */
 	wire [`LOG_2WAY - 1:0] Order_of_Target;
@@ -106,8 +111,8 @@ module icache_top (
 	/* Virtual init state */
 	reg IFR;
 
-	assign Valid_at_raddr = Order[{ Array_addr,`LOG_2WAY'd0 } +: `CACHE_WAY],
-		Order_at_raddr = Order[{ Array_addr,3'd0 } +: (`CACHE_WAY * `LOG_2WAY) ];
+	assign Valid_at_addr = Valid[{ Array_addr,`LOG_2WAY'd0 } +: `CACHE_WAY],
+		Order_at_addr = Order[{ Array_addr,3'd0 } +: (`CACHE_WAY * `LOG_2WAY) ];
 		/* Array_addr * `CACHE_WAY * `LOG_2WAY */
 	
 	assign { Addr_Tag,Addr_Index,Addr_Offset } = (
@@ -116,7 +121,7 @@ module icache_top (
 
 	assign Array_addr = Addr_Index;
 
-	assign Flag_Hit = Valid_at_raddr & {
+	assign Flag_Hit = Valid_at_addr & {
 		Addr_Tag == Tag_r[(3 * `TAG_LEN) +: `TAG_LEN],
 		Addr_Tag == Tag_r[(2 * `TAG_LEN) +: `TAG_LEN],
 		Addr_Tag == Tag_r[(1 * `TAG_LEN) +: `TAG_LEN],
@@ -124,18 +129,18 @@ module icache_top (
 	};
 
 	/* Just find the first way whose order is 3 */
-	assign Flag_Miss[0] = &Order_at_raddr[(0 * `LOG_2WAY) +: `LOG_2WAY],
+	assign Flag_Miss[0] = &Order_at_addr[(0 * `LOG_2WAY) +: `LOG_2WAY],
 		Flag_Miss[1] = (
 			!Flag_Miss[0] &&
-			&Order_at_raddr[(1 * `LOG_2WAY) +: `LOG_2WAY]
+			&Order_at_addr[(1 * `LOG_2WAY) +: `LOG_2WAY]
 		),
 		Flag_Miss[2] = (
 			!Flag_Miss[0] && !Flag_Miss[1] &&
-			&Order_at_raddr[(2 * `LOG_2WAY) +: `LOG_2WAY]
+			&Order_at_addr[(2 * `LOG_2WAY) +: `LOG_2WAY]
 		),
 		Flag_Miss[3] = (
 			!Flag_Miss[0] && !Flag_Miss[1] && Flag_Miss[2] &&
-			&Order_at_raddr[(3 * `LOG_2WAY) +: `LOG_2WAY]
+			&Order_at_addr[(3 * `LOG_2WAY) +: `LOG_2WAY]
 		);
 
 	assign Block_Hit = (
@@ -151,33 +156,33 @@ module icache_top (
 	);
 
 	assign Order_of_Target = (
-		{`LOG_2WAY{Flag_Target[3]}} & Order_at_raddr[(3 * `LOG_2WAY) + `LOG_2WAY] |
-		{`LOG_2WAY{Flag_Target[2]}} & Order_at_raddr[(2 * `LOG_2WAY) + `LOG_2WAY] |
-		{`LOG_2WAY{Flag_Target[1]}} & Order_at_raddr[(1 * `LOG_2WAY) + `LOG_2WAY] |
-		{`LOG_2WAY{Flag_Target[0]}} & Order_at_raddr[(0 * `LOG_2WAY) + `LOG_2WAY]
+		{`LOG_2WAY{Flag_Target[3]}} & Order_at_addr[(3 * `LOG_2WAY) +: `LOG_2WAY] |
+		{`LOG_2WAY{Flag_Target[2]}} & Order_at_addr[(2 * `LOG_2WAY) +: `LOG_2WAY] |
+		{`LOG_2WAY{Flag_Target[1]}} & Order_at_addr[(1 * `LOG_2WAY) +: `LOG_2WAY] |
+		{`LOG_2WAY{Flag_Target[0]}} & Order_at_addr[(0 * `LOG_2WAY) +: `LOG_2WAY]
 	);
 
 	/* To modify order of 4 ways at certain address */
 	assign Order_Offset = {
 		{`LOG_2WAY{Flag_Target[3]}} & (-Order_of_Target) |
-		{`LOG_2WAY{Order_at_raddr[(3 * `LOG_2WAY) + `LOG_2WAY] < Order_of_Target}} & `LOG_2WAY'd1,
+		{`LOG_2WAY{Order_at_addr[(3 * `LOG_2WAY) +: `LOG_2WAY] < Order_of_Target}} & `LOG_2WAY'd1,
 		{`LOG_2WAY{Flag_Target[2]}} & (-Order_of_Target) |
-		{`LOG_2WAY{Order_at_raddr[(2 * `LOG_2WAY) + `LOG_2WAY] < Order_of_Target}} & `LOG_2WAY'd1,
+		{`LOG_2WAY{Order_at_addr[(2 * `LOG_2WAY) +: `LOG_2WAY] < Order_of_Target}} & `LOG_2WAY'd1,
 		{`LOG_2WAY{Flag_Target[1]}} & (-Order_of_Target) |
-		{`LOG_2WAY{Order_at_raddr[(1 * `LOG_2WAY) + `LOG_2WAY] < Order_of_Target}} & `LOG_2WAY'd1,
+		{`LOG_2WAY{Order_at_addr[(1 * `LOG_2WAY) +: `LOG_2WAY] < Order_of_Target}} & `LOG_2WAY'd1,
 		{`LOG_2WAY{Flag_Target[0]}} & (-Order_of_Target) |
-		{`LOG_2WAY{Order_at_raddr[(0 * `LOG_2WAY) + `LOG_2WAY] < Order_of_Target}} & `LOG_2WAY'd1
+		{`LOG_2WAY{Order_at_addr[(0 * `LOG_2WAY) +: `LOG_2WAY] < Order_of_Target}} & `LOG_2WAY'd1
 	};
 
 	data_array Darray[`CACHE_WAY - 1:0] (
 		/* Only wen and rdata are separate for 4 ways */
-		.clk(clk), .waddr(Array_waddr), .raddr(Array_addr),
+		.clk(clk), .waddr(Array_addr), .raddr(Array_addr),
 		.wen(Array_wen), .wdata(Data_w), .rdata(Data_r)
 	);
 	/* Only wdata and rdata are separate for Darray and Tarray */
 	tag_array Tarray[`CACHE_WAY - 1:0] (
 		/* Only wen and rdata are separate for 4 ways */
-		.clk(clk), .waddr(Array_waddr), .raddr(Array_addr),
+		.clk(clk), .waddr(Array_addr), .raddr(Array_addr),
 		.wen(Array_wen), .wdata(Tag_w), .rdata(Tag_r)
 	);
 
@@ -238,10 +243,21 @@ module icache_top (
 		if (next_state == s_DONE) begin
 			if (current_state == s_WAIT)
 				/* After hitting */
-				VDR <= Block_Hit[{ Addr_Offset[4:2],5'd0 } +: `LINE_LEN];
-			else
-				;// TODO: after refilling
+				VDR <= Block_Hit[{ Addr_Offset[4:2],5'd0 } +: 32];
+			else if (current_state == s_FILL)
+				VDR <= Buffer[{ Addr_Offset[4:2],5'd0 } +: 32];
 		end
+	end
+
+	/* Valid */
+	always @ (posedge clk) begin
+		if (rst)
+			Valid <= {(`CACHE_SET * `CACHE_WAY){1'd0}};
+		else if (current_state == s_FILL)
+			Valid <= Valid | (
+				{ {((`CACHE_SET - 1) * `CACHE_WAY){1'd0}},FTR }
+					<< { Array_addr,`LOG_2WAY'd0 }
+			);
 	end
 
 	/* Order */
@@ -250,11 +266,39 @@ module icache_top (
 			Order <= {(`CACHE_SET * `CACHE_WAY * `LOG_2WAY){1'd1}};
 		else if (current_state == s_WAIT && next_state != s_WAIT)
 			/* Renew order */
-			Order <= Order + (
-				{ {((`CACHE_SET - 1) * `CACHE_WAY * `LOG_2WAY){1'd0}},Order_Offset }
+			Order <= Order & ~(
+				{ {((`CACHE_SET - 1) * `CACHE_WAY * `LOG_2WAY){1'd0}},{(`CACHE_WAY * `LOG_2WAY){1'd1} } }
 					<< { Array_addr,3'd0 }	/* Array_addr * `CACHE_WAY * `LOG_2WAY */
-			);
+			) | {
+				Order_at_addr[(3 * `LOG_2WAY) +: `LOG_2WAY] + Order_Offset[(3 * `LOG_2WAY) +: `LOG_2WAY],
+				Order_at_addr[(2 * `LOG_2WAY) +: `LOG_2WAY] + Order_Offset[(2 * `LOG_2WAY) +: `LOG_2WAY],
+				Order_at_addr[(1 * `LOG_2WAY) +: `LOG_2WAY] + Order_Offset[(1 * `LOG_2WAY) +: `LOG_2WAY],
+				Order_at_addr[(0 * `LOG_2WAY) +: `LOG_2WAY] + Order_Offset[(0 * `LOG_2WAY) +: `LOG_2WAY]
+			};
 	end
+
+	/* Buffer */
+	always @ (posedge clk) begin
+		if (current_state == s_LOAD && next_state == s_RECV)
+			/* Clear before use, although unnecessary */
+			Buffer <= `LINE_LEN'd0;
+		else if (current_state == s_RECV && from_mem_rd_rsp_valid)
+			/* Receiving data from main memory */
+			Buffer <= { from_mem_rd_rsp_data,Buffer[`LINE_LEN - 1:32] };
+	end
+
+	/* FTR */
+	always @ (posedge clk) begin
+		if (current_state == s_WAIT && next_state == s_LOAD)
+			/* Miss */
+			FTR <= Flag_Target;
+	end
+
+	/* Connect to Tarray and Darray */
+	assign Array_wen = (
+		{`CACHE_WAY{current_state == s_FILL}} & FTR
+	);
+	assign Data_w = Buffer, Tag_w = Addr_Tag;
 
 	/* Connect to CPU */
 	assign to_cpu_inst_req_ready = (current_state == s_WAIT),
@@ -263,8 +307,7 @@ module icache_top (
 	
 	/* Connect to main memory */
 	assign to_mem_rd_req_valid = (current_state == s_LOAD),
-		to_mem_rd_rsp_ready = (current_state == s_RECV),
-		to_mem_rd_req_addr = { Addr_Tag,Addr_Index,{(31 - `TAG_LEN - `ADDR_WIDTH){1'd0}} };
+		to_mem_rd_rsp_ready = (IFR || current_state == s_RECV),
+		to_mem_rd_req_addr = { Addr_Tag,Addr_Index,{(32 - `TAG_LEN - `ADDR_WIDTH){1'd0}} };
 
 endmodule
-

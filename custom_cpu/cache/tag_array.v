@@ -12,7 +12,7 @@ module tag_array(
 	output [`TARRAY_DATA_WIDTH - 1:0] rdata
 );
 
-	reg [`TARRAY_DATA_WIDTH-1:0] array[ 1 << `TARRAY_ADDR_WIDTH - 1 : 0];
+	reg [`TARRAY_DATA_WIDTH-1:0] array[ (1 << `TARRAY_ADDR_WIDTH) - 1 : 0];
 	
 	always @(posedge clk)
 	begin
