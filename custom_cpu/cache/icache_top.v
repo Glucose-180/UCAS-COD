@@ -2,8 +2,10 @@
 
 `define CACHE_SET	8
 `define CACHE_WAY	4
+`define LOG_2WAY	2
 `define TAG_LEN		24
 `define LINE_LEN	256
+`define ADDR_WIDTH	3
 
 module icache_top (
 	input	      clk,
@@ -43,6 +45,151 @@ module icache_top (
 );
 
 //TODO: Please add your I-Cache code here
+
+	localparam s_WAIT = 5'h1, s_LOAD = 5'h2,
+		s_RECV = 5'h4, s_FILL = 5'h8, s_DONE = 5'h10;
+
+	/* Valid array */
+	reg [`CACHE_SET * `CACHE_WAY - 1:0] Valid;
+	/* usage: Valid[{ Addr,2'd0 } +: 4] */
+
+	/* Access order array of every group:
+	 for every group, the range is 2'd0~2'd3,
+	 the way whose order is 3 will be replaced. */
+	reg [`CACHE_SET * `CACHE_WAY * `LOG_2WAY - 1:0] Order;
+
+	wire [`CACHE_WAY * `LOG_2WAY - 1:0] Order_at_raddr, Order_at_waddr;
+	wire [`CACHE_WAY - 1:0] Valid_at_raddr, Valid_at_waddr;
+
+	wire [23:0] Addr_Tag;
+	wire [2:0] Addr_Index;
+	wire [4:0] Addr_Offset;
+
+	/* Write-enable signal of every way */
+	wire [`CACHE_WAY - 1:0] Array_wen;
+	/* Address of all ways */
+	reg [`ADDR_WIDTH - 1:0] Array_waddr;
+	wire [`ADDR_WIDTH - 1:0] Array_raddr;
+
+	/* Data read from every way:
+	 255~0 for way 0, ..., 1023~768 for way 3. */
+	wire [`CACHE_WAY * `LINE_LEN - 1:0] Data_r;
+	/* Tag read from every way:
+	 23~0 for way 0, ..., 95~72 for way 3. */
+	wire [`CACHE_WAY * `TAG_LEN - 1:0] Tag_r;
+
+	/* Data to write to all ways */
+	wire [`LINE_LEN - 1:0] Data_w;
+	wire [`TAG_LEN - 1:0] Tag_w;
+
+	/* Valid data reg */
+	reg [31:0] VDR;
+
+	/* The HIT block of cache, it has 8 words */
+	wire [`LINE_LEN - 1:0] Block_Hit;
+
+	/* Hit flag for every way at certain address */
+	wire [`CACHE_WAY - 1:0] Flag_Hit;
+
+	/* For FSM */
+	reg [4:0] current_state, next_state;
+
+	/* Virtual init state */
+	reg IFR;
+
+	assign Valid_at_raddr = Order[{ Array_raddr,`LOG_2WAY'd0 } +: `CACHE_WAY],
+		Valid_at_waddr = Valid[{ Array_waddr,`LOG_2WAY'd0 } +: `CACHE_WAY];
+	assign Order_at_raddr = Order[{ Array_raddr,3'd0 } +: 8 ],
+		Order_at_waddr = Order[{ Array_waddr,3'd0 } +: 8];
+	
+	assign Addr_Tag = from_cpu_inst_req_addr[31:8],
+		Addr_Index = from_cpu_inst_req_addr[7:5],
+		Addr_Offset = from_cpu_inst_req_addr[4:0];
+
+	assign Array_raddr = Addr_Index;
+
+	assign Flag_Hit = Valid_at_raddr & {
+		Addr_Tag == Tag_r[(3 * `TAG_LEN) +: `TAG_LEN],
+		Addr_Tag == Tag_r[(2 * `TAG_LEN) +: `TAG_LEN],
+		Addr_Tag == Tag_r[(1 * `TAG_LEN) +: `TAG_LEN],
+		Addr_Tag == Tag_r[(0 * `TAG_LEN) +: `TAG_LEN]
+	};
+
+	assign Block_Hit = (
+		{`LINE_LEN{Flag_Hit[3]}} & Data_r[(3 * `LINE_LEN) +: `LINE_LEN] |
+		{`LINE_LEN{Flag_Hit[2]}} & Data_r[(2 * `LINE_LEN) +: `LINE_LEN] |
+		{`LINE_LEN{Flag_Hit[1]}} & Data_r[(1 * `LINE_LEN) +: `LINE_LEN] |
+		{`LINE_LEN{Flag_Hit[0]}} & Data_r[(0 * `LINE_LEN) +: `LINE_LEN]
+	);
+
+	data_array Darray[`CACHE_WAY - 1:0] (
+		/* Only wen and rdata are separate for 4 ways */
+		.clk(clk), .waddr(Array_waddr), .raddr(Array_raddr),
+		.wen(Array_wen), .wdata(Data_w), .rdata(Data_r)
+	);
+	/* Only wdata and rdata are separate for Darray and Tarray */
+	tag_array Tarray[`CACHE_WAY - 1:0] (
+		/* Only wen and rdata are separate for 4 ways */
+		.clk(clk), .waddr(Array_waddr), .raddr(Array_raddr),
+		.wen(Array_wen), .wdata(Tag_w), .rdata(Tag_r)
+	);
+
+	/* FSM 1 */
+	always @ (posedge clk) begin
+		if (rst)
+			current_state <= s_WAIT;
+		else
+			current_state <= next_state;
+	end
+
+	/* FSM 2 */
+	always @ (*) begin
+		case (current_state)
+		s_WAIT:	/* Waiting for CPU's request */
+			if (IFR || !from_cpu_inst_req_valid)
+				next_state = s_WAIT;
+			else if (Flag_Hit == `CACHE_WAY'd0)
+				/* Miss */
+				next_state = s_LOAD;
+			else	/* Hit */
+				next_state = s_DONE;
+		s_LOAD:	/* Prepare to read memory */
+			if (from_mem_rd_req_ready)
+				next_state = s_RECV;
+			else
+				next_state = s_LOAD;
+		s_RECV:	/* Receive data from memory */
+			if (from_mem_rd_rsp_valid && from_mem_rd_rsp_last)
+				next_state = s_FILL;
+			else
+				next_state = s_RECV;
+		s_FILL:	/* Refill cache */
+			next_state = s_DONE;
+		default:	/* s_DONE */
+			/* Waiting for CPU's response */
+			if (from_cpu_cache_rsp_ready)
+				next_state = s_WAIT;
+			else	/* Waiting for CPU */
+				next_state = s_DONE;
+		endcase
+	end
+
+	/* IFR */
+	always @ (posedge clk) begin
+		IFR <= rst;
+		/* To yield a virtual initial state */
+	end
+
+	/* VDR */
+	always @ (posedge clk) begin
+		if (next_state == s_DONE) begin
+			if (current_state == s_WAIT)
+				/* After hitting */
+				VDR <= Block_Hit[{ Addr_Offset[4:2],5'd0 } +: `LINE_LEN];
+			else
+				;// TODO: after refilling
+		end
+	end
 
 endmodule
 
