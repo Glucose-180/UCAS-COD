@@ -61,7 +61,7 @@ module icache_top (
 	reg [31:0] CAR;	/* CPU address reg */
 
 	wire [`CACHE_WAY * `LOG_2WAY - 1:0] Order_at_addr,
-		Order_Offset;
+		Order_Offset, Order_sum_temp;
 	wire [`CACHE_WAY - 1:0] Valid_at_addr, Valid_at_waddr;
 
 	wire [`TAG_LEN - 1:0] Addr_Tag;
@@ -260,6 +260,15 @@ module icache_top (
 			);
 	end
 
+	assign Order_sum_temp[(3 * `LOG_2WAY) +: `LOG_2WAY] =
+		Order_at_addr[(3 * `LOG_2WAY) +: `LOG_2WAY] + Order_Offset[(3 * `LOG_2WAY) +: `LOG_2WAY],
+		Order_sum_temp[(2 * `LOG_2WAY) +: `LOG_2WAY] =
+		Order_at_addr[(2 * `LOG_2WAY) +: `LOG_2WAY] + Order_Offset[(2 * `LOG_2WAY) +: `LOG_2WAY],
+		Order_sum_temp[(1 * `LOG_2WAY) +: `LOG_2WAY] =
+		Order_at_addr[(1 * `LOG_2WAY) +: `LOG_2WAY] + Order_Offset[(1 * `LOG_2WAY) +: `LOG_2WAY],
+		Order_sum_temp[(0 * `LOG_2WAY) +: `LOG_2WAY] =
+		Order_at_addr[(0 * `LOG_2WAY) +: `LOG_2WAY] + Order_Offset[(0 * `LOG_2WAY) +: `LOG_2WAY];
+
 	/* Order */
 	always @ (posedge clk) begin
 		if (rst)
@@ -267,14 +276,12 @@ module icache_top (
 		else if (current_state == s_WAIT && next_state != s_WAIT)
 			/* Renew order */
 			Order <= Order & ~(
-				{ {((`CACHE_SET - 1) * `CACHE_WAY * `LOG_2WAY){1'd0}},{(`CACHE_WAY * `LOG_2WAY){1'd1} } }
+				{ {((`CACHE_SET - 1) * `CACHE_WAY * `LOG_2WAY){1'd0}},{(`CACHE_WAY * `LOG_2WAY){1'd1}} }
 					<< { Array_addr,3'd0 }	/* Array_addr * `CACHE_WAY * `LOG_2WAY */
-			) | {
-				Order_at_addr[(3 * `LOG_2WAY) +: `LOG_2WAY] + Order_Offset[(3 * `LOG_2WAY) +: `LOG_2WAY],
-				Order_at_addr[(2 * `LOG_2WAY) +: `LOG_2WAY] + Order_Offset[(2 * `LOG_2WAY) +: `LOG_2WAY],
-				Order_at_addr[(1 * `LOG_2WAY) +: `LOG_2WAY] + Order_Offset[(1 * `LOG_2WAY) +: `LOG_2WAY],
-				Order_at_addr[(0 * `LOG_2WAY) +: `LOG_2WAY] + Order_Offset[(0 * `LOG_2WAY) +: `LOG_2WAY]
-			};
+			) | (
+				{ {((`CACHE_SET - 1) * `CACHE_WAY * `LOG_2WAY){1'd0}},Order_sum_temp }
+					<< { Array_addr,3'd0 }	/* Array_addr * `CACHE_WAY * `LOG_2WAY */
+			);
 	end
 
 	/* Buffer */
