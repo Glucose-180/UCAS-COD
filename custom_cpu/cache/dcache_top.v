@@ -411,7 +411,8 @@ module dcache_top (
 			(Buffer & ~Mask32_for_Data | Write_data)
 			/* Refill */
 		);
-	
+	/* NOTE: If this is not a write request, CWSR will be 4'd0.
+	 So, Data_w will be the same as Buffer.  */
 	assign Wstrb32 = {
 		{8{Flag_WAIT & from_cpu_mem_req_wstrb[3] | ~Flag_WAIT & CWSR[3]}},
 		{8{Flag_WAIT & from_cpu_mem_req_wstrb[2] | ~Flag_WAIT & CWSR[2]}},
@@ -452,7 +453,7 @@ module dcache_top (
 	/* CWSR */
 	always @ (posedge clk) begin
 		if (Flag_WAIT && next_state != s_WAIT)
-			CWSR <= from_cpu_mem_req_wstrb;
+			CWSR <= {4{from_cpu_mem_req == r_WRITE}} & from_cpu_mem_req_wstrb;
 	end
 
 	/* FTR */
