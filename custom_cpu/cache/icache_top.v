@@ -62,7 +62,7 @@ module icache_top (
 
 	wire [`CACHE_WAY * `LOG_2WAY - 1:0] Order_at_addr,
 		Order_Offset, Order_sum_temp;
-	wire [`CACHE_WAY - 1:0] Valid_at_addr, Valid_at_waddr;
+	wire [`CACHE_WAY - 1:0] Valid_at_addr;
 
 	wire [`TAG_LEN - 1:0] Addr_Tag;
 	wire [`ADDR_WIDTH - 1:0] Addr_Index;
