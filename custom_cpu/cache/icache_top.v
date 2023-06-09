@@ -139,7 +139,7 @@ module icache_top (
 			&Order_at_addr[(2 * `LOG_2WAY) +: `LOG_2WAY]
 		),
 		Flag_Miss[3] = (
-			!Flag_Miss[0] && !Flag_Miss[1] && Flag_Miss[2] &&
+			!Flag_Miss[0] && !Flag_Miss[1] && !Flag_Miss[2] &&
 			&Order_at_addr[(3 * `LOG_2WAY) +: `LOG_2WAY]
 		);
 

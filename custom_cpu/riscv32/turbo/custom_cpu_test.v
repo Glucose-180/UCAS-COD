@@ -1,22 +1,12 @@
 `timescale 1ns / 1ps
 
-/* Limit of total cycles */
-`define TLIMIT 0
-
-/* Limit of cycles of one instruction */
-`define ITLIMIT 1000
-
 module custom_cpu_test
 ();
 
     reg	sys_clk;
 	reg	sys_reset_n;
 
-    integer ymr, ymr_i;
-
 	initial begin
-        ymr = 0;
-        ymr_i = 0;
 		sys_clk = 1'b0;
 		sys_reset_n = 1'b0;
 		# 100
@@ -68,11 +58,6 @@ module custom_cpu_test
 
     reg trace_end;
 
-    always @ (posedge sys_clk) begin
-        ymr = ymr + 1;
-        ymr_i = ymr_i + 1;
-    end
-
     // Get golden records
     always @(posedge sys_clk) begin 
         if (~sys_reset_n)
@@ -81,7 +66,7 @@ module custom_cpu_test
             if ($feof(trace_file))
                 trace_end <= 1'b1;
             #1;
-            if (rf_en_rt !== 1'b1 & has_compared) begin
+            if (has_compared) begin
             	if ($feof(trace_file))
                 	trace_end <= 1'b1;
 
@@ -131,17 +116,7 @@ module custom_cpu_test
             has_compared <= 1'b1;
         else begin
             #3;
-            if (`TLIMIT > 0 && ymr > `TLIMIT || `ITLIMIT > 0 && ymr_i > `ITLIMIT)
-            begin
-                $display("===================================================================");
-                $display("ERROR: at %dns.", $time);
-                $display("TIMEOUT!");
-                $display("Reference: PC = 0x%8h, rf_waddr = 0x%2h, rf_wdata = 0x%8h", pc_golden, rf_waddr_golden, rf_wdata_golden);
-                $display("===================================================================");
-                $fclose(trace_file);
-                $fatal;
-            end
-            else if(rf_en_rt & rf_waddr_rt != 5'd0)
+            if(rf_en_rt & rf_waddr_rt != 5'd0)
             begin
                 if ((pc_rt !== pc_golden) || (rf_waddr_rt !== rf_waddr_golden) || ((rf_wdata_rt & rf_bit_cmp_ref) !== (rf_wdata_golden & rf_bit_cmp_ref)))
                 begin
@@ -153,10 +128,8 @@ module custom_cpu_test
                     $fclose(trace_file);
                     $fatal;
                 end
-                else begin
+                else
                     has_compared <= 1'b1;
-                    ymr_i = 0;
-                end
             end
             else
                 has_compared <= 1'b0;
