@@ -134,6 +134,8 @@ module dcache_top (
 	/* Tag read from every way:
 	 23~0 for way 0, ..., 95~72 for way 3. */
 	wire [`CACHE_WAY * `TAG_LEN - 1:0] Tag_r;
+	/* Tag of the block to be refilled */
+	wire [`TAG_LEN - 1:0] Tag_Target;
 
 	/* Data to write to all ways */
 	wire [`LINE_LEN - 1:0] Data_w;
@@ -142,11 +144,14 @@ module dcache_top (
 	/* Valid data reg */
 	reg [31:0] VDR;
 
-	/* The HIT block of cache, it has 8 words */
-	wire [`LINE_LEN - 1:0] Block_Hit;
+	/* The block HIT or to be REFILLED, it has 8 words */
+	wire [`LINE_LEN - 1:0] Block_Target;
 
-	/* Buffer for reading memory */
+	/* Buffer for burst reading and writing memory */
 	reg [`LINE_LEN - 1:0] Buffer;
+
+	/* Send counter */
+	reg [7:0] Send_ymr;
 
 	/* Hit flag for every way at certain address */
 	wire [`CACHE_WAY - 1:0] Flag_Hit;
@@ -161,7 +166,8 @@ module dcache_top (
 	wire [`LOG_2WAY - 1:0] Order_of_Target;
 
 	/* Mask signals */
-	wire [`LINE_LEN - 1:0] Mask32_for_Data;	/* 32 "1"s */
+	wire [`LINE_LEN - 1:0] Mask32_for_Data,	/* 32 "1"s */
+		Shifted_Write_data;
 	wire [`CACHE_SET * `CACHE_WAY * `LOG_2WAY - 1:0]
 		Mask8_for_Order;	/* 8 "1"s */
 
@@ -171,7 +177,6 @@ module dcache_top (
 	/* For FSM */
 	reg [6:0] current_state, next_state;
 	wire Flag_WAIT;
-
 	/* Virtual init state */
 	reg IFR;
 
@@ -210,16 +215,24 @@ module dcache_top (
 			&Order_at_addr[(3 * `LOG_2WAY) +: `LOG_2WAY]
 		);
 
-	assign Block_Hit = (
-		{`LINE_LEN{Flag_Hit[3]}} & Data_r[(3 * `LINE_LEN) +: `LINE_LEN] |
-		{`LINE_LEN{Flag_Hit[2]}} & Data_r[(2 * `LINE_LEN) +: `LINE_LEN] |
-		{`LINE_LEN{Flag_Hit[1]}} & Data_r[(1 * `LINE_LEN) +: `LINE_LEN] |
-		{`LINE_LEN{Flag_Hit[0]}} & Data_r[(0 * `LINE_LEN) +: `LINE_LEN]
+	assign Block_Target = (
+		{`LINE_LEN{Flag_Target[3]}} & Data_r[(3 * `LINE_LEN) +: `LINE_LEN] |
+		{`LINE_LEN{Flag_Target[2]}} & Data_r[(2 * `LINE_LEN) +: `LINE_LEN] |
+		{`LINE_LEN{Flag_Target[1]}} & Data_r[(1 * `LINE_LEN) +: `LINE_LEN] |
+		{`LINE_LEN{Flag_Target[0]}} & Data_r[(0 * `LINE_LEN) +: `LINE_LEN]
+	);
+
+	assign Tag_Target = (
+		{`TAG_LEN{Flag_Miss[3]}} & Tag_r[(3 * `TAG_LEN) +: `TAG_LEN] |
+		{`TAG_LEN{Flag_Miss[2]}} & Tag_r[(2 * `TAG_LEN) +: `TAG_LEN] |
+		{`TAG_LEN{Flag_Miss[1]}} & Tag_r[(1 * `TAG_LEN) +: `TAG_LEN] |
+		{`TAG_LEN{Flag_Miss[0]}} & Tag_r[(0 * `TAG_LEN) +: `TAG_LEN]
 	);
 
 	/* Flag_Target is Flag_Hit when cache hit, or Flag_Miss otherwise */
 	assign Flag_Target = (
-		(Flag_Hit == `CACHE_WAY'd0) ? Flag_Miss : Flag_Hit
+		{`CACHE_WAY{|Flag_Hit}} & Flag_Hit |
+		{`CACHE_WAY{~(|Flag_Hit)}} & Flag_Miss
 	);
 
 	assign Flag_Bypass = (
@@ -275,13 +288,13 @@ module dcache_top (
 			else if (Flag_Hit != `CACHE_WAY'd0)
 				/* Hit */
 				next_state = s_DONE;
-			else if (from_cpu_mem_req == r_READ ||
-				/* Read miss */
-				!Flag_Bypass && !(Modified_at_addr & Flag_Miss))
-				/* Write miss, not modified, and can use Cache */
+			else if ((from_cpu_mem_req == r_READ || !Flag_Bypass) &&
+				/* Read miss, or write miss and can use Cache */
+				!(Modified_at_addr & Flag_Miss))
+				/* NOT modified */
 				next_state = s_LOAD;
 			else
-				/* Write miss, and (modified or cannpt use Cache) */
+				/* Miss, and (modified or write and cannot use Cache) */
 				next_state = s_STOR;
 		s_LOAD:
 			if (from_mem_rd_req_ready)
@@ -322,11 +335,13 @@ module dcache_top (
 		if (next_state == s_DONE) begin
 			if (Flag_WAIT && from_cpu_mem_req == r_READ)
 				/* Read hit */
-				VDR <= Block_Hit[{ Addr_Offset[4:2],5'd0 } +: 32];
-			else if (current_state == s_FILL)
-				; //TODO
-			else if (current_state == s_RECV)
-				; // TODO
+				VDR <= Block_Target[{ Addr_Offset[4:2],5'd0 } +: 32];
+			else if (current_state == s_FILL && CMRR == r_READ)
+				/* Read miss: Write_data is exactly the data needed! */
+				VDR <= Write_data;
+			else if (current_state == s_RECV && Flag_Bypass && from_mem_rd_rsp_valid)
+				/* Read through bypass */
+				VDR <= from_mem_rd_rsp_data;
 		end
 	end
 
@@ -394,7 +409,10 @@ module dcache_top (
 
 	assign Mask32_for_Data = (
 		{ {(`LINE_LEN - 32){1'd0}},~32'd0 } << { Addr_Offset[4:2],5'd0 }
-	);	/* 32 "1"s in 256 bits */
+	),	/* 32 "1"s in 256 bits */
+		Shifted_Write_data = (
+		{ {(`LINE_LEN - 32){1'd0}},Write_data } << { Addr_Offset[4:2],5'd0 }
+	);
 
 	/* Connect to Tarray and Darray */
 	assign Array_wen = (
@@ -405,14 +423,15 @@ module dcache_top (
 	assign Tag_w = Addr_Tag,
 		Data_w = (
 			{`LINE_LEN{Flag_WAIT}} & 
-			(Block_Hit & ~Mask32_for_Data | Write_data) |
+			(Block_Target & ~Mask32_for_Data | Shifted_Write_data) |
 			/* Write hit */
 			{`LINE_LEN{current_state == s_FILL}} &
-			(Buffer & ~Mask32_for_Data | Write_data)
+			(Buffer & ~Mask32_for_Data | Shifted_Write_data)
 			/* Refill */
 		);
 	/* NOTE: If this is not a write request, CWSR will be 4'd0.
-	 So, Data_w will be the same as Buffer.  */
+	 So, Data_w will be the same as Buffer. 
+	 Besides, Write_data will be the data need to be read. */
 	assign Wstrb32 = {
 		{8{Flag_WAIT & from_cpu_mem_req_wstrb[3] | ~Flag_WAIT & CWSR[3]}},
 		{8{Flag_WAIT & from_cpu_mem_req_wstrb[2] | ~Flag_WAIT & CWSR[2]}},
@@ -422,9 +441,71 @@ module dcache_top (
 
 	assign Write_data = (
 		Wstrb32 & ({32{Flag_WAIT}} & from_cpu_mem_req_wdata | {32{~Flag_WAIT}} & CMDR) |
-		~Wstrb32 & ({32{Flag_WAIT}} & Block_Hit[{ Addr_Offset[4:2],5'd0 } +: 32] |
+		~Wstrb32 & ({32{Flag_WAIT}} & Block_Target[{ Addr_Offset[4:2],5'd0 } +: 32] |
 		{32{~Flag_WAIT}} & Buffer[{ Addr_Offset[4:2],5'd0 } +: 32])
 	);
+	
+	/* Buffer */
+	always @ (posedge clk) begin
+		if (current_state == s_LOAD && next_state == s_RECV)
+			/* Clear before use, although unnecessary */
+			Buffer <= `LINE_LEN'd0;
+		else if (current_state == s_RECV && from_mem_rd_rsp_valid && !Flag_Bypass)
+			/* Receiving data from main memory(Burst) */
+			Buffer <= { from_mem_rd_rsp_data,Buffer[`LINE_LEN - 1:32] };
+		else if (Flag_WAIT && next_state == s_STOR && !Flag_Bypass)
+			/* Miss and the target has been modified,
+			 prepare to write back. */
+			Buffer <= Block_Target;
+	end
+
+	/* Send_ymr */
+	always @ (posedge clk) begin
+		if (current_state == s_STOR && next_state == s_SEND)
+			Send_ymr <= 8'd0;	/* Clear */
+		else if (current_state == s_SEND && from_mem_wr_data_ready)
+			/* Set counter */
+			Send_ymr <= Send_ymr + 8'd1;
+	end
+
+	/* Connect to CPU */
+	assign to_cpu_mem_req_ready = Flag_WAIT,
+		to_cpu_cache_rsp_valid = (CMRR == r_READ && current_state == s_DONE),
+		to_cpu_cache_rsp_data = (CMRR == r_READ && VDR);
+
+	/* Connect to Main memory */
+	assign to_mem_rd_req_valid = (current_state == s_LOAD),
+		to_mem_rd_req_addr = {
+			Addr_Tag,Addr_Index,
+			{{(32 - `TAG_LEN - `ADDR_WIDTH){Flag_Bypass}} &
+				{ Addr_Offset[(31 - `TAG_LEN - `ADDR_WIDTH):2],2'd0 }}
+			/* Bypass: 4 B aligned; Burst: 32 B aligned */
+		},
+		to_mem_rd_req_len = {8{~Flag_Bypass}} & 8'd7,
+		to_mem_rd_rsp_ready = (current_state == s_RECV);
+	assign to_mem_wr_req_valid = (current_state == s_STOR),
+		to_mem_wr_req_addr = (
+			{32{Flag_Bypass}} & CMAR |
+			/* Bypass: CMAR is already 4 B aligned */
+			{32{~Flag_Bypass}} &
+			{ Tag_Target,Addr_Index,{(32 - `TAG_LEN - `ADDR_WIDTH){1'd0}} }
+			/* Burst: 32 B aligned */
+		),
+		to_mem_wr_req_len = to_mem_rd_req_len;
+	assign to_mem_wr_data_valid = (current_state == s_SEND),
+		to_mem_wr_data = (
+			{32{Flag_Bypass}} & CMDR |
+			/* Bypass */
+			{32{~Flag_Bypass}} & Buffer[{ Send_ymr,5'd0 } +: 32]
+			/* Burst */
+		),
+		to_mem_wr_data_strb = (
+			{4{Flag_Bypass}} & CWSR | {4{~Flag_Bypass}}
+			/* Bypass and burst */
+		),
+		to_mem_wr_data_last = (
+			current_state == s_SEND && Send_ymr == to_mem_wr_req_len
+		);
 
 	/* IFR */
 	always @ (posedge clk) begin
@@ -435,7 +516,7 @@ module dcache_top (
 	/* CMAR */
 	always @ (posedge clk) begin
 		if (Flag_WAIT && next_state != s_WAIT)
-			CMAR <= from_cpu_mem_req_addr;
+			CMAR <= { from_cpu_mem_req_addr[31:2],2'd0 };
 	end
 
 	/* CMRR */
