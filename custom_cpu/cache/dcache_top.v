@@ -161,6 +161,8 @@ module dcache_top (
 	wire [`CACHE_WAY - 1:0] Flag_Target;
 	/* reg of Flag_Target, used for refilling */
 	reg [`CACHE_WAY - 1:0] FTR;
+	/* reg of Tag_Target, used for writting back */
+	reg [`TAG_LEN - 1:0] TTR;
 
 	/* Order of target block, hit or to be refilled */
 	wire [`LOG_2WAY - 1:0] Order_of_Target;
@@ -236,8 +238,8 @@ module dcache_top (
 	);
 
 	assign Flag_Bypass = (
-		|Addr_Tag[(`TAG_LEN - 1) -: 2] != 1'd0 ||	/* >= 0x4000_0000 */
-		|Addr_Tag == 1'd0 && |Addr_Index == 1'd0	/* <= 0x0000_001F */
+		(Addr_Tag[(`TAG_LEN - 1) -: 2] != 2'd0) ||	/* >= 0x4000_0000 */
+		(Addr_Tag == `TAG_LEN'd0) && (Addr_Index == `ADDR_WIDTH'd0)	/* <= 0x0000_001F */
 	);
 
 	assign Order_of_Target = (
@@ -285,17 +287,25 @@ module dcache_top (
 		s_WAIT:
 			if (IFR || !from_cpu_mem_req_valid)
 				next_state = s_WAIT;
-			else if (Flag_Hit != `CACHE_WAY'd0)
-				/* Hit */
-				next_state = s_DONE;
-			else if ((from_cpu_mem_req == r_READ || !Flag_Bypass) &&
-				/* Read miss, or write miss and can use Cache */
-				!(Modified_at_addr & Flag_Miss))
-				/* NOT modified */
-				next_state = s_LOAD;
-			else
-				/* Miss, and (modified or write and cannot use Cache) */
-				next_state = s_STOR;
+			else if (Flag_Bypass) begin
+				if (from_cpu_mem_req == r_READ)
+					next_state = s_LOAD;
+				else
+					next_state = s_STOR;
+			end
+			else begin
+				if (Flag_Hit != `CACHE_WAY'd0)
+					/* Hit */
+					next_state = s_DONE;
+				else begin
+					/* Miss */
+					if ((Modified_at_addr & Flag_Miss) == `CACHE_WAY'd0)
+						/* NOT modified */
+						next_state = s_LOAD;
+					else	/* Modified */
+						next_state = s_STOR;
+				end
+			end
 		s_LOAD:
 			if (from_mem_rd_req_ready)
 				next_state = s_RECV;
@@ -328,8 +338,12 @@ module dcache_top (
 				next_state = s_SEND;
 			else if (Flag_Bypass)
 				next_state = s_DONE;
-			else	/* Can use Cache */
-				next_state = s_LOAD;
+			else begin	/* Can use Cache */
+				if (to_mem_wr_data_last)
+					next_state = s_LOAD;
+				else
+					next_state = s_SEND;
+			end
 		endcase
 	end
 
@@ -464,9 +478,10 @@ module dcache_top (
 
 	/* Send_ymr */
 	always @ (posedge clk) begin
-		if (current_state == s_STOR && next_state == s_SEND)
+		if (Flag_WAIT && next_state == s_STOR)
 			Send_ymr <= 8'd0;	/* Clear */
-		else if (current_state == s_SEND && from_mem_wr_data_ready)
+		else if ((/*current_state == s_STOR || */current_state == s_SEND)
+			&& from_mem_wr_data_ready)
 			/* Set counter */
 			Send_ymr <= Send_ymr + 8'd1;
 	end
@@ -491,11 +506,13 @@ module dcache_top (
 			{32{Flag_Bypass}} & CMAR |
 			/* Bypass: CMAR is already 4 B aligned */
 			{32{~Flag_Bypass}} &
-			{ Tag_Target,Addr_Index,{(32 - `TAG_LEN - `ADDR_WIDTH){1'd0}} }
+			{ TTR,Addr_Index,{(32 - `TAG_LEN - `ADDR_WIDTH){1'd0}} }
 			/* Burst: 32 B aligned */
 		),
 		to_mem_wr_req_len = to_mem_rd_req_len;
-	assign to_mem_wr_data_valid = (current_state == s_SEND),
+	assign to_mem_wr_data_valid = (
+		/*current_state == s_STOR || */current_state == s_SEND
+	),
 		to_mem_wr_data = (
 			{32{Flag_Bypass}} & CMDR |
 			/* Bypass */
@@ -542,10 +559,17 @@ module dcache_top (
 
 	/* FTR */
 	always @ (posedge clk) begin
-		if (Flag_WAIT && next_state == s_LOAD)
+		if (Flag_WAIT && next_state != s_WAIT)
 			/* Miss */
 			FTR <= Flag_Target;
 	end
 
+	/* TTR */
+	always @ (posedge clk) begin
+		if (Flag_WAIT && next_state == s_STOR)
+			TTR <= Tag_Target;
+		/* When miss and the block to be refilled has been modified,
+		 get its tag for writting back. */
+	end
 
 endmodule
