@@ -482,7 +482,7 @@ module dcache_top (
 			/* Bypass: 4 B aligned; Burst: 32 B aligned */
 		},
 		to_mem_rd_req_len = {8{~Flag_Bypass}} & 8'd7,
-		to_mem_rd_rsp_ready = (current_state == s_RECV);
+		to_mem_rd_rsp_ready = (IFR || current_state == s_RECV);
 	assign to_mem_wr_req_valid = (current_state == s_STOR),
 		to_mem_wr_req_addr = (
 			{32{Flag_Bypass}} & CMAR |
