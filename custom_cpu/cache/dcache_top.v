@@ -237,7 +237,7 @@ module dcache_top (
 
 	assign Flag_Bypass = (
 		|Addr_Tag[(`TAG_LEN - 1) -: 2] != 1'd0 ||	/* >= 0x4000_0000 */
-		&Addr_Tag == 1'd0 && &Addr_Index == 1'd0	/* <= 0x0000_001F */
+		|Addr_Tag == 1'd0 && |Addr_Index == 1'd0	/* <= 0x0000_001F */
 	);
 
 	assign Order_of_Target = (
@@ -306,12 +306,15 @@ module dcache_top (
 				next_state = s_RECV;
 			else if (Flag_Bypass)
 				next_state = s_DONE;
-			else	/* Can use Cache */
+			else if (from_mem_rd_rsp_last)
+				/* Can use Cache */
 				next_state = s_FILL;
+			else
+				next_state = s_RECV;
 		s_FILL:
 			next_state = s_DONE;
 		s_DONE:
-			if (from_cpu_cache_rsp_ready)
+			if (from_cpu_cache_rsp_ready || CMRR == r_WRITE)
 				next_state = s_WAIT;
 			else
 				next_state = s_DONE;
@@ -471,7 +474,7 @@ module dcache_top (
 	/* Connect to CPU */
 	assign to_cpu_mem_req_ready = Flag_WAIT,
 		to_cpu_cache_rsp_valid = (CMRR == r_READ && current_state == s_DONE),
-		to_cpu_cache_rsp_data = (CMRR == r_READ && VDR);
+		to_cpu_cache_rsp_data = ({32{CMRR == r_READ}} & VDR);
 
 	/* Connect to Main memory */
 	assign to_mem_rd_req_valid = (current_state == s_LOAD),
