@@ -98,7 +98,7 @@ module stage_EX(
 		/* Jtype, Itype-J */
 	);
 
-	assign Product = RF_rdata1 * RF_rdata2;
+	assign Product = 64'd0;//RF_rdata1 * RF_rdata2;
 
 	/* Done_O */
 	always @ (posedge clk) begin
