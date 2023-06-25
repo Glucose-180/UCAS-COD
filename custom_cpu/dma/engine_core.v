@@ -58,9 +58,9 @@ module engine_core #(
 	input               wr_ready,
 	output              wr_last,
 	
-	output              fifo_rden,
+	output reg          fifo_rden,
 	output [31:0]       fifo_wdata,
-	output reg          fifo_wen,
+	output              fifo_wen,
 
 	input  [31:0]       fifo_rdata,
 	input               fifo_is_empty,
@@ -71,6 +71,8 @@ module engine_core #(
 	reg [26:0] Burst_ymr;	/* Counter of Burst */
 	reg [4:0] Send_ymr;		/* Counter of sending of every Burst */
 	reg [31:0] sub_ptr;		/* Points to the address of current Burst */
+
+	reg [31:0] FFR;	/* FIFO reg, which holds data read from it */
 
 	reg [5:0] current_state, next_state;
 	reg IFR;	/* Initial flag reg */
@@ -199,9 +201,25 @@ module engine_core #(
 			sub_ptr <= tail_ptr;
 	end
 
+	/* FFR */
+	always @ (posedge clk) begin
+		if (fifo_rden)
+			FFR <= fifo_rdata;
+	end
+
+	/* fifo_rden */
+	always @ (posedge clk) begin
+		if (fifo_rden)
+			fifo_rden <= 0;
+		else if (next_state == s_FFRD && fifo_rden == 0)
+			fifo_rden <= 1;
+	end
+
 	assign rd_req_addr = sub_ptr, wr_req_addr = sub_ptr,
 		rd_req_len = 5'd7, wr_req_len = 5'd7,
-		rd_ready = (IFR || current_state == s_RECV);
-	// TODO: wr_data, wr_valid, wr_last
+		rd_ready = (IFR || current_state == s_RECV),
+		wr_data = FFR, wr_valid = (current_state == s_SEND),
+		wr_last = (Send_ymr == wr_req_len);
+	// TODO: Send_ymr, Burst_ymr, ...
 endmodule
 
