@@ -77,6 +77,8 @@ module engine_core #(
 	reg [5:0] current_state, next_state;
 	reg IFR;	/* Initial flag reg */
 
+	reg EFR;	/* Error flag reg. For DEBUG! */
+
 	localparam s_WAIT = 6'h1, s_LOAD = 6'h2, s_RECV = 6'h4,
 		s_STOR = 6'h8, s_FFRD = 6'h10, s_SEND = 6'h20;
 
@@ -164,7 +166,9 @@ module engine_core #(
 			tail_ptr <= 32'd0;
 		else if (reg_wr_en[2])
 			tail_ptr <= reg_wr_data;
-		// TODO
+		else if (current_state == s_SEND && next_state == s_WAIT)
+			/* One sub buffer has been finished */
+			tail_ptr <= { tail_ptr[31:5] + Burst_ymr[31:5],5'd0 };
 	end
 
 	/* head_ptr */
@@ -189,7 +193,9 @@ module engine_core #(
 			ctrl_stat <= 32'd0;
 		else if (reg_wr_en[5])
 			ctrl_stat <= reg_wr_data;
-		// TODO
+		else if (current_state == s_SEND && next_state == s_WAIT)
+			/* Set interrupt signal */
+			ctrl_stat <= { 1'd1,ctrl_stat[30:0] };
 	end
 
 	/* sub_ptr */
@@ -209,17 +215,48 @@ module engine_core #(
 
 	/* fifo_rden */
 	always @ (posedge clk) begin
-		if (fifo_rden)
+		if (rst || fifo_rden)
 			fifo_rden <= 0;
 		else if (next_state == s_FFRD && fifo_rden == 0)
 			fifo_rden <= 1;
 	end
 
+	/* Connect to main memory */
 	assign rd_req_addr = sub_ptr, wr_req_addr = sub_ptr,
 		rd_req_len = 5'd7, wr_req_len = 5'd7,
 		rd_ready = (IFR || current_state == s_RECV),
 		wr_data = FFR, wr_valid = (current_state == s_SEND),
-		wr_last = (Send_ymr == wr_req_len);
-	// TODO: Send_ymr, Burst_ymr, ...
-endmodule
+		wr_last = (Send_ymr == wr_req_len),
+		rd_req_valid = s_LOAD, wr_req_valid = s_STOR;
 
+	/* Connect to FIFO */
+	assign fifo_wdata = rd_rdata,
+		fifo_wen = (current_state == s_RECV && rd_valid && rd_ready);
+
+	/* Send_ymr */
+	always @ (posedge clk) begin
+		if (current_state == s_STOR)
+			Send_ymr <= 5'd0;
+		else if (current_state == s_SEND && next_state == s_FFRD)
+			Send_ymr <= Send_ymr + 5'd1;
+	end
+
+	/* Burst_ymr */
+	always @ (posedge clk) begin
+		if (rst || next_state == s_WAIT)
+			Burst_ymr <= 27'd0;
+		else if (current_state != s_LOAD && next_state == s_LOAD)
+			/* Begin a new Burst */
+			Burst_ymr <= Burst_ymr + 27'd1;
+	end
+
+	/* EFR */
+	always @ (posedge clk) begin
+		if (rst)
+			EFR <= 0;
+		else if (fifo_is_empty && fifo_rden ||
+			fifo_is_full && fifo_wen)
+			/* Error occurs */
+			EFR <= 1;
+	end
+endmodule
