@@ -168,7 +168,7 @@ module engine_core #(
 			tail_ptr <= reg_wr_data;
 		else if (current_state == s_SEND && next_state == s_WAIT)
 			/* One sub buffer has been finished */
-			tail_ptr <= { tail_ptr[31:5] + Burst_ymr[31:5],5'd0 };
+			tail_ptr <= { tail_ptr[31:5] + Burst_ymr,5'd0 };
 	end
 
 	/* head_ptr */
