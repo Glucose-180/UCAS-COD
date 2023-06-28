@@ -202,14 +202,19 @@ module engine_core #(
 	always @ (posedge clk) begin
 		if (rst)
 			sub_ptr <= 32'd0;
-		else if (current_state == s_WAIT &&
-			next_state == s_LOAD)
-			sub_ptr <= tail_ptr;
+		else if (next_state == s_LOAD) begin
+			if (current_state == s_WAIT)
+				/* new sub buffer */
+				sub_ptr <= tail_ptr;
+			else if (current_state == s_SEND)
+				/* new Burst */
+				sub_ptr <= sub_ptr + 32'd32;
+		end
 	end
 
 	/* FFR */
 	always @ (posedge clk) begin
-		if (fifo_rden)
+		if (current_state == s_FFRD && next_state == s_SEND)
 			FFR <= fifo_rdata;
 	end
 
@@ -222,12 +227,12 @@ module engine_core #(
 	end
 
 	/* Connect to main memory */
-	assign rd_req_addr = sub_ptr, wr_req_addr = sub_ptr,
+	assign rd_req_addr = src_base + sub_ptr, wr_req_addr = dest_base + sub_ptr,
 		rd_req_len = 5'd7, wr_req_len = 5'd7,
 		rd_ready = (IFR || current_state == s_RECV),
 		wr_data = FFR, wr_valid = (current_state == s_SEND),
 		wr_last = (Send_ymr == wr_req_len),
-		rd_req_valid = s_LOAD, wr_req_valid = s_STOR;
+		rd_req_valid = (current_state == s_LOAD), wr_req_valid = (current_state == s_STOR);
 
 	/* Connect to FIFO */
 	assign fifo_wdata = rd_rdata,
