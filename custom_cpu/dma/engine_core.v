@@ -101,7 +101,7 @@ module engine_core #(
 		s_WAIT:
 			if (ctrl_stat[0] && head_ptr != tail_ptr &&
 			/* DMA::EN */
-				!intr && dma_size != 32'd0 && !IFR)
+				/*!intr && */dma_size != 32'd0 && !IFR)
 				next_state = s_LOAD;
 			else
 				next_state = s_WAIT;
