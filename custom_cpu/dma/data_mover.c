@@ -21,6 +21,9 @@ void dma_setup()
 	reg_val = *(dma_mmio + (DMA_CTRL_STAT >> 2));
 	reg_val |= DMA_EN;
 	*(dma_mmio + (DMA_CTRL_STAT >> 2)) = reg_val;
+	
+	// Set src_buf again!!!
+	*(dma_mmio + (DMA_SRC_BASE >> 2)) = (unsigned int)src_buf;
 }
 
 void generate_data(unsigned int *buf)
@@ -72,7 +75,21 @@ void setup_buf()
 
 #ifdef USE_DMA
 	//waiting for all sub-region are processed by DMA engine
-	while(dma_buf_stat);
+	while(dma_buf_stat)
+		;
+	// Check: added by Glucose180
+	unsigned int i = 0U;
+	for (; i < DMA_SIZE / sizeof(int); ++i)
+		if (((int *)src_buf)[i] != ((int *)dest_buf)[i])
+			break;
+	if (i < DMA_SIZE / sizeof(int))
+		printf(
+			"**Error: \n"
+			"\tsrc_buf[%u] is 0x%x, while dest_buf[%u] is 0x%x!\n",
+			i << 2, ((int *)src_buf)[i], i << 2, ((int *)dest_buf)[i]
+		);
+	else
+		printf("Check passed!\n");
 #else
 	memcpy();
 #endif
