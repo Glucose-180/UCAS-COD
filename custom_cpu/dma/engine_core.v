@@ -231,7 +231,7 @@ module engine_core #(
 		rd_req_len = 5'd7, wr_req_len = 5'd7,
 		rd_ready = (IFR || current_state == s_RECV),
 		wr_data = FFR, wr_valid = (current_state == s_SEND),
-		wr_last = (Send_ymr == wr_req_len),
+		wr_last = (wr_valid && Send_ymr == wr_req_len),
 		rd_req_valid = (current_state == s_LOAD), wr_req_valid = (current_state == s_STOR);
 
 	/* Connect to FIFO */
