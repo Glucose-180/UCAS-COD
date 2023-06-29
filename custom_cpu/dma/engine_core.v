@@ -79,8 +79,13 @@ module engine_core #(
 
 	reg EFR;	/* Error flag reg. For DEBUG! */
 
+	/* For FSM */
 	localparam s_WAIT = 6'h1, s_LOAD = 6'h2, s_RECV = 6'h4,
 		s_STOR = 6'h8, s_FFRD = 6'h10, s_SEND = 6'h20;
+
+	/* reg writing signals */
+	localparam w_SRC = 6'b000001, w_DEST = 6'b000010, w_TAIL = 6'b000100,
+		w_HEAD = 6'b001000, w_SIZE = 6'b010000, w_CTRL = 6'b100000;
 
 	/* FSM: 1 */
 	always @ (posedge clk) begin
@@ -145,27 +150,27 @@ module engine_core #(
 
 	/* src_base */
 	always @ (posedge clk) begin
-		if (rst)
-			src_base <= 32'd0;
-		else if (reg_wr_en[0])
+		if (reg_wr_en == w_SRC)
 			/* CPU writes */
 			src_base <= reg_wr_data;
+		else if (rst)
+			src_base <= 32'd0;
 	end
 
 	/* dest_base */
 	always @ (posedge clk) begin
-		if (rst)
-			dest_base <= 32'd0;
-		else if (reg_wr_en[1])
+		if (reg_wr_en == w_DEST)
 			dest_base <= reg_wr_data;
+		else if (rst)
+			dest_base <= 32'd0;
 	end
 
 	/* tail_ptr */
 	always @ (posedge clk) begin
-		if (rst)
-			tail_ptr <= 32'd0;
-		else if (reg_wr_en[2])
+		if (reg_wr_en == w_TAIL)
 			tail_ptr <= reg_wr_data;
+		else if (rst)
+			tail_ptr <= 32'd0;
 		else if (current_state == s_SEND && next_state == s_WAIT)
 			/* One sub buffer has been finished */
 			tail_ptr <= { tail_ptr[31:5] + Burst_ymr,5'd0 };
@@ -173,26 +178,26 @@ module engine_core #(
 
 	/* head_ptr */
 	always @ (posedge clk) begin
-		if (rst)
-			head_ptr <= 32'd0;
-		else if (reg_wr_en[3])
+		if (reg_wr_en == w_HEAD)
 			head_ptr <= reg_wr_data;
+		else if (rst)
+			head_ptr <= 32'd0;
 	end
 
 	/* dma_size */
 	always @ (posedge clk) begin
-		if (rst)
-			dma_size <= 32'd0;
-		else if (reg_wr_en[4])
+		if (reg_wr_en == w_SIZE)
 			dma_size <= reg_wr_data;
+		else if (rst)
+			dma_size <= 32'd0;
 	end
 
 	/* ctrl_stat */
 	always @ (posedge clk) begin
-		if (rst)
-			ctrl_stat <= 32'd0;
-		else if (reg_wr_en[5])
+		if (reg_wr_en == w_CTRL)
 			ctrl_stat <= reg_wr_data;
+		else if (rst)
+			ctrl_stat <= 32'd0;
 		else if (current_state == s_SEND && next_state == s_WAIT)
 			/* Set interrupt signal */
 			ctrl_stat <= { 1'd1,ctrl_stat[30:0] };
