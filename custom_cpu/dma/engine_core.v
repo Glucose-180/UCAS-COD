@@ -150,27 +150,27 @@ module engine_core #(
 
 	/* src_base */
 	always @ (posedge clk) begin
-		if (reg_wr_en == w_SRC)
+		if (rst)
+			src_base <= 32'd0;
+		else if (reg_wr_en == w_SRC)
 			/* CPU writes */
 			src_base <= reg_wr_data;
-		else if (rst)
-			src_base <= 32'd0;
 	end
 
 	/* dest_base */
 	always @ (posedge clk) begin
-		if (reg_wr_en == w_DEST)
-			dest_base <= reg_wr_data;
-		else if (rst)
+		if (rst)
 			dest_base <= 32'd0;
+		else if (reg_wr_en == w_DEST)
+			dest_base <= reg_wr_data;
 	end
 
 	/* tail_ptr */
 	always @ (posedge clk) begin
-		if (reg_wr_en == w_TAIL)
-			tail_ptr <= reg_wr_data;
-		else if (rst)
+		if (rst)
 			tail_ptr <= 32'd0;
+		else if (reg_wr_en == w_TAIL)
+			tail_ptr <= reg_wr_data;
 		else if (current_state == s_SEND && next_state == s_WAIT)
 			/* One sub buffer has been finished */
 			tail_ptr <= { tail_ptr[31:5] + Burst_ymr,5'd0 };
@@ -178,26 +178,26 @@ module engine_core #(
 
 	/* head_ptr */
 	always @ (posedge clk) begin
-		if (reg_wr_en == w_HEAD)
-			head_ptr <= reg_wr_data;
-		else if (rst)
+		if (rst)
 			head_ptr <= 32'd0;
+		else if (reg_wr_en == w_HEAD)
+			head_ptr <= reg_wr_data;
 	end
 
 	/* dma_size */
 	always @ (posedge clk) begin
-		if (reg_wr_en == w_SIZE)
-			dma_size <= reg_wr_data;
-		else if (rst)
+		if (rst)
 			dma_size <= 32'd0;
+		else if (reg_wr_en == w_SIZE)
+			dma_size <= reg_wr_data;
 	end
 
 	/* ctrl_stat */
 	always @ (posedge clk) begin
-		if (reg_wr_en == w_CTRL)
-			ctrl_stat <= reg_wr_data;
-		else if (rst)
+		if (rst)
 			ctrl_stat <= 32'd0;
+		else if (reg_wr_en == w_CTRL)
+			ctrl_stat <= reg_wr_data;
 		else if (current_state == s_SEND && next_state == s_WAIT)
 			/* Set interrupt signal */
 			ctrl_stat <= { 1'd1,ctrl_stat[30:0] };
