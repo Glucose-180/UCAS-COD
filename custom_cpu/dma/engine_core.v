@@ -206,7 +206,7 @@ module engine_core #(
 			tail_ptr <= 32'd0;
 		else if (reg_wr_en == w_TAIL)
 			tail_ptr <= reg_wr_data;
-		else if (load_state == ls_DONE && load_next == ss_WAIT)
+		else if (load_state == ls_DONE && load_next == ls_WAIT)
 			/* One sub buffer has been finished */
 			tail_ptr <= { tail_ptr[31:5] + Burst_ymr,5'd0 };
 	end

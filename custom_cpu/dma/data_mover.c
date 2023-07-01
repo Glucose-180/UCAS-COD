@@ -77,22 +77,25 @@ void setup_buf()
 	//waiting for all sub-region are processed by DMA engine
 	while(dma_buf_stat)
 		;
-	// Check: added by Glucose180
-	unsigned int i = 0U;
-	for (; i < BUF_SIZE / sizeof(int); ++i)
-		if (((int *)src_buf)[i] != ((int *)dest_buf)[i])
-			break;
-	if (i < BUF_SIZE / sizeof(int))
-		printf(
-			"**Error: \n"
-			"\tsrc_buf[%u] is 0x%x, while dest_buf[%u] is 0x%x!\n",
-			i << 2, ((int *)src_buf)[i], i << 2, ((int *)dest_buf)[i]
-		);
-	else
-		printf("%u KiB: Check passed!\n", i >> 8);
 #else
 	memcpy();
 #endif
+	// Check: added by Glucose180
+	unsigned int i = 0U;
+	unsigned int *src = (unsigned int *)src_buf,
+		*dest = (unsigned int *)dest_buf;
+	for (; i < BUF_SIZE / sizeof(unsigned int); ++i)
+		if (src[i] != dest[i])
+			break;
+	if (i < BUF_SIZE / sizeof(unsigned int))
+		printf(
+			"**Error: \n"
+			"\tsrc[%u] is 0x%x, while dest[%u] is 0x%x!\n",
+			i, src[i], i, dest[i]
+		);
+	else
+		printf("%u KiB: Check passed!\n\tsrc is 0x%x, dest is 0x%x.\n",
+			i >> 8, (unsigned int)src, (unsigned int)dest);
 }
 
 int main()
