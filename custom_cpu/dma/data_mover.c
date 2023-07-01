@@ -2,18 +2,13 @@
 #include "printf.h"
 #include "trap.h"
 
-/* Performance counter 0: cycle counter */
-static volatile unsigned int *Counter0 = (void *)0x60010000;
-
-static volatile unsigned int cycle_ymr;
-
 void dma_setup()
 {
 	unsigned int reg_val;
 
 	//set base address of source and destination buffer respectively
 	*(dma_mmio + (DMA_SRC_BASE >> 2)) = (unsigned int)src_buf;
-	*(dma_mmio + (DMA_DEST_BASE >> 2)) = (unsigned int)dest_buf; 
+	*(dma_mmio + (DMA_DEST_BASE >> 2)) = (unsigned int)dest_buf;
 
 	//set size (number of bytes) of DMA transferring
 	*(dma_mmio + (DMA_SIZE_REG >> 2)) = DMA_SIZE;
@@ -26,7 +21,7 @@ void dma_setup()
 	reg_val = *(dma_mmio + (DMA_CTRL_STAT >> 2));
 	reg_val |= DMA_EN;
 	*(dma_mmio + (DMA_CTRL_STAT >> 2)) = reg_val;
-	
+
 	// Set src_buf again!!!
 	*(dma_mmio + (DMA_SRC_BASE >> 2)) = (unsigned int)src_buf;
 }
@@ -34,7 +29,7 @@ void dma_setup()
 void generate_data(unsigned int *buf)
 {
 	unsigned int *addr = buf;
-	
+
 	for(int i = 0; i < (DMA_SIZE / sizeof(int)); i++)
 		*(addr + i) = i;
 }
@@ -61,7 +56,7 @@ void setup_buf()
 #endif
 
 	dma_buf_stat = 0;
-	
+
 	for(int i = 0; i < sub_buf_num; i++)
 	{
 		generate_data((unsigned int *)buf);
@@ -85,9 +80,7 @@ void setup_buf()
 #else
 	memcpy();
 #endif
-	/* Calculate */
-	cycle_ymr = *Counter0 - cycle_ymr;
-	/* Check: added by Glucose180 */
+	// Check: added by Glucose180
 	unsigned int i = 0U;
 	unsigned int *src = (unsigned int *)src_buf,
 		*dest = (unsigned int *)dest_buf;
@@ -109,19 +102,14 @@ int main()
 {
 #ifdef USE_DMA
 	printf("Prepare DMA engine\n");
-	
+
 	//setup DMA engine
 	dma_setup();
 #endif
 
-	/* Read the value at the beginning */
-	cycle_ymr = *Counter0;
-
 	//start buffer writing
 	printf("Prepare SW data mover\n");
 	setup_buf();
-
-	printf("Total cycle: %u\n", cycle_ymr);
 
 	printf("benchmark finished\n");
 	return 0;
