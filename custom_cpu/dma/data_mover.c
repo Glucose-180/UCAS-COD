@@ -79,17 +79,17 @@ void setup_buf()
 		;
 	// Check: added by Glucose180
 	unsigned int i = 0U;
-	for (; i < DMA_SIZE / sizeof(int); ++i)
+	for (; i < BUF_SIZE / sizeof(int); ++i)
 		if (((int *)src_buf)[i] != ((int *)dest_buf)[i])
 			break;
-	if (i < DMA_SIZE / sizeof(int))
+	if (i < BUF_SIZE / sizeof(int))
 		printf(
 			"**Error: \n"
 			"\tsrc_buf[%u] is 0x%x, while dest_buf[%u] is 0x%x!\n",
 			i << 2, ((int *)src_buf)[i], i << 2, ((int *)dest_buf)[i]
 		);
 	else
-		printf("Check passed!\n");
+		printf("%u KiB: Check passed!\n", i >> 8);
 #else
 	memcpy();
 #endif
