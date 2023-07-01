@@ -5,7 +5,7 @@
 /* Performance counter 0: cycle counter */
 static volatile unsigned int *Counter0 = (void *)0x60010000;
 
-static unsigned int cycle_ymr;
+static volatile unsigned int cycle_ymr;
 
 void dma_setup()
 {
@@ -60,9 +60,6 @@ void setup_buf()
 	unsigned int reg_val;
 #endif
 
-	/* Read the value at the beginning */
-	cycle_ymr = *Counter0;
-
 	dma_buf_stat = 0;
 	
 	for(int i = 0; i < sub_buf_num; i++)
@@ -116,6 +113,9 @@ int main()
 	//setup DMA engine
 	dma_setup();
 #endif
+
+	/* Read the value at the beginning */
+	cycle_ymr = *Counter0;
 
 	//start buffer writing
 	printf("Prepare SW data mover\n");
