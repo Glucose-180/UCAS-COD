@@ -173,8 +173,8 @@ module engine_core #(
 	/* FIFO_ymr */
 	always @ (posedge clk) begin
 		FIFO_ymr <= FIFO_ymr + (
-			{16{fifo_wen && !fifo_is_full}} & 16'd1 |	/* inc */
-			{16{fifo_rden && !fifo_is_empty}} & ~16'd0	/* dec */
+			({16{fifo_wen && !fifo_is_full}} & 16'd1) +	/* inc */
+			({16{fifo_rden && !fifo_is_empty}} & ~16'd0)	/* dec */
 		);
 	end
 
