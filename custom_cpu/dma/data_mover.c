@@ -2,6 +2,11 @@
 #include "printf.h"
 #include "trap.h"
 
+/* Performance counter 0: cycle counter */
+static volatile unsigned int *Counter0 = (void *)0x60010000;
+
+static unsigned int cycle_ymr;
+
 void dma_setup()
 {
 	unsigned int reg_val;
@@ -55,6 +60,9 @@ void setup_buf()
 	unsigned int reg_val;
 #endif
 
+	/* Read the value at the beginning */
+	cycle_ymr = *Counter0;
+
 	dma_buf_stat = 0;
 	
 	for(int i = 0; i < sub_buf_num; i++)
@@ -80,7 +88,9 @@ void setup_buf()
 #else
 	memcpy();
 #endif
-	// Check: added by Glucose180
+	/* Calculate */
+	cycle_ymr = *Counter0 - cycle_ymr;
+	/* Check: added by Glucose180 */
 	unsigned int i = 0U;
 	unsigned int *src = (unsigned int *)src_buf,
 		*dest = (unsigned int *)dest_buf;
@@ -110,6 +120,8 @@ int main()
 	//start buffer writing
 	printf("Prepare SW data mover\n");
 	setup_buf();
+
+	printf("Total cycle: %u\n", cycle_ymr);
 
 	printf("benchmark finished\n");
 	return 0;
